@@ -11,8 +11,8 @@ import re
 import datetime
 import os
 import argparse
-import paramiko
-import getpass
+#import paramiko
+#import getpass
 
 
 def main():
@@ -20,26 +20,26 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--device', required=True, action='store', help='The type of VMware device (vcd, vsphere5, vsphere6)')
     parser.add_argument('-l', '--log', required=False, action='store', help='Specific log file to inspect')
-    parser.add_argument('-r', '--host', required=False, action='store', help='Remote host to connect to over SSH. Localhost is implied if not used')
-    parser.add_argument('-u', '--user', required=False, action='store', help='SSH user for remote hosts. Not required unless you specified a remote host')
-    parser.add_argument('-p', '--password', required=False, action='store', help='SSH password for scripting. Recommened that you IGNORE and will be securely prompted instead')
+    #parser.add_argument('-r', '--host', required=False, action='store', help='Remote host to connect to over SSH. Localhost is implied if not used')
+    #parser.add_argument('-u', '--user', required=False, action='store', help='SSH user for remote hosts. Not required unless you specified a remote host')
+    #parser.add_argument('-p', '--password', required=False, action='store', help='SSH password for scripting. Recommened that you IGNORE and will be securely prompted instead')
     #parser.add_argument('-r', '--recursive', required=False, action='store', help='Set to number of older log files you want to parse older copies and not just the last full log')
     args = parser.parse_args()
     col_type = str(args.device)
     col_log = str(args.log)
-    col_host = str(args.host)
-    col_user = str(args.user)
-    col_pass = str(args.password)
+    #col_host = str(args.host)
+    #col_user = str(args.user)
+    #col_pass = str(args.password)
   
 
     print '\n ---- Events Per Second (EPS) Calculator for VMware Products ---- \n'
     
     # Coneect to remote host and grab log file
     
-    if col_host != 'None':
-        if col_pass == 'None':
-            print 'Please enter your password'
-            col_pass = getpass.getpass()
+    #if col_host != 'None':
+        #if col_pass == 'None':
+            #print 'Please enter your password'
+            #col_pass = getpass.getpass()
             
         
           
