@@ -2,6 +2,11 @@
 This simple python script is run against your vCD Cells and will give you an estimate on 
 your Events Per Second as well as the bandwidth consumed by syslog events.
 
+REQUIRED scp to be installed if you connect to remote hosts. Install it with 
+"pip install scp" from the command line
+
+This script will automatically add host keys to your known host list which can potentially be a security risk
+
 Currently supports VMware Cloud Director (vcd)
 Future support of VMware vSphere5 and vSphere6
 
@@ -11,53 +16,103 @@ import re
 import datetime
 import os
 import argparse
-#import paramiko
-#import getpass
+import getpass
+import paramiko
+import sys
+import atexit
+import shutil
+from paramiko import SSHClient
+from scp import SCPClient
 
+global tmp_dir
+global default_vcd 
+global default_vsphere5
+global default_vsphere6
+
+tmp_dir = '/tmp/vmw_eps_calc'
+default_vcd = '/opt/vmware/vcloud-director/logs/vcloud-container-debug.log.1'
+default_vsphere5 = ''
+default_vsphere6 = ''
 
 def main():
+    atexit.register(clean_up)
     # Parse command line arguments to fine device class and specific log if requested
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--device', required=True, action='store', help='The type of VMware device (vcd, vsphere5, vsphere6)')
     parser.add_argument('-l', '--log', required=False, action='store', help='Specific log file to inspect')
-    #parser.add_argument('-r', '--host', required=False, action='store', help='Remote host to connect to over SSH. Localhost is implied if not used')
-    #parser.add_argument('-u', '--user', required=False, action='store', help='SSH user for remote hosts. Not required unless you specified a remote host')
-    #parser.add_argument('-p', '--password', required=False, action='store', help='SSH password for scripting. Recommened that you IGNORE and will be securely prompted instead')
+    parser.add_argument('-r', '--host', required=False, action='store', help='Remote host to connect to over SSH. Localhost is implied if not used')
+    parser.add_argument('-u', '--user', required=False, action='store', help='SSH user for remote hosts. Not required unless you specified a remote host')
+    parser.add_argument('-p', '--password', required=False, action='store', help='SSH password for scripting. Recommened that you IGNORE and will be securely prompted instead')
     #parser.add_argument('-r', '--recursive', required=False, action='store', help='Set to number of older log files you want to parse older copies and not just the last full log')
     args = parser.parse_args()
     col_type = str(args.device)
     col_log = str(args.log)
-    #col_host = str(args.host)
-    #col_user = str(args.user)
-    #col_pass = str(args.password)
+    col_host = str(args.host)
+    col_user = str(args.user)
+    col_pass = str(args.password)
   
-
     print '\n ---- Events Per Second (EPS) Calculator for VMware Products ---- \n'
     
-    # Coneect to remote host and grab log file
+    # Operations for collecting from a remote host
+    if col_host != 'None':
+        if col_user == 'None':
+            sys.exit('Please specify the user with the -u flag\n')
+        print 'Caution - Continuing to run this can potentially add unknown SSH host keys to the machine running this script\n'
+        if col_pass == 'None':
+            col_pass = getpass.getpass()
+        # Connect to remote host
+        scp_connect(col_host, col_user, col_pass, col_log, col_type)
     
-    #if col_host != 'None':
-        #if col_pass == 'None':
-            #print 'Please enter your password'
-            #col_pass = getpass.getpass()
-            
-        
-          
-        
-        
-    
-    if col_log == 'None':
+    # Operations for a local collection
+    if col_host == 'None' and col_log == 'None':
         file_list(None, col_type)
     else:
-        print 'Using custom log specified at command line\n'
-        file_list(col_log, col_type)
+        if col_host == 'None':
+            print 'Using custom log specified at command line\n'
+            file_list(col_log, col_type)
+            
+    
+
+
+def scp_connect(server, username, password, col_log, col_type):
+    print 'Connecting to remote host ' + server
+    ssh = SSHClient()
+    #ssh.load_system_host_keys()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(server, 22, username, password)
+    scp = SCPClient(ssh.get_transport())
+    
+    # Copy files to localdir
+    if col_log == 'None' and col_type == 'vcd':
+        col_log = default_vcd
+    if col_log == 'None' and col_type == 'vsphere5':
+        col_log = default_vsphere5
+    if col_log == 'None' and col_type == 'vsphere6':
+        col_log = default_vsphere6
+
+    # Create local directory to hold log files
+    print tmp_dir
+    try:
+        os.stat(tmp_dir)
+        print 'Local temp folder exists'
+    except:
+        
+        os.mkdir(tmp_dir)
+        print 'Creating local temp folder'
+        
+    print 'Connected, attempting to copy ' + col_log + ' to localhost. This can take a a bit depending on your connection....'
+    file_path = '/tmp/vmw_eps_calc/'
+    scp.get(col_log, file_path)
+
+    # Pass file location to file_list() after parsing it a bit to extract the actual file name
+    file_name_index = col_log.rfind('/')
+    file_name = col_log[file_name_index:]
+    file_path = tmp_dir + file_name
+    file_list(file_path, col_type)
+    scp.close()    
 
 
 def file_list(file_location, device_type):
-    default_vcd = '/opt/vmware/vcloud-director/logs/vcloud-container-debug.log.1'
-    default_vsphere5 = ''
-    default_vsphere6 = ''
-    
     # Check file exists and get size at same time
     if file_location != None:
         try:
@@ -95,7 +150,7 @@ def file_list(file_location, device_type):
             if file_size_kb:
                 # Pass file to parser
                 parse_vcd_log(default_vsphere6, file_size_kb)
-         
+
 
 def parse_vcd_log(file_location, file_size_kb):
     # Create list of timestamps in file
@@ -150,6 +205,14 @@ def display_results(elasped_time_sec, file_size_kb, total_event_count):
     print 'Based on your log file you are cuurently experiencing the below usage:'
     print 'Average Events Per Second (EPS): ' + str((total_event_count / elasped_time_sec))
     print 'Average Size Per Second (KBps): ' + str((file_size_kb / elasped_time_sec)) + '\n'
+
+def clean_up():
+    # Clean up temporary directory if it exists
+    try:
+        shutil.rmtree(tmp_dir)
+        print 'Deleted temporary directory'
+    except:
+        print 'No temporary directory to remove'
 
 if __name__ == '__main__':
     main()
