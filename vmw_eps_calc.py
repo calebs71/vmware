@@ -70,8 +70,6 @@ def main():
         if col_host == 'None':
             print 'Using custom log specified at command line\n'
             file_list(col_log, col_type)
-            
-    
 
 
 def scp_connect(server, username, password, col_log, col_type):
@@ -91,19 +89,16 @@ def scp_connect(server, username, password, col_log, col_type):
         col_log = default_vsphere6
 
     # Create local directory to hold log files
-    print tmp_dir
     try:
         os.stat(tmp_dir)
         print 'Local temp folder exists'
     except:
-        
         os.mkdir(tmp_dir)
         print 'Creating local temp folder'
         
-    print 'Connected, attempting to copy ' + col_log + ' to localhost. This can take a a bit depending on your connection....'
+    print 'Connected to remote host, attempting to copy ' + col_log + ' to localhost. This can take a a bit depending on your connection....\n'
     file_path = '/tmp/vmw_eps_calc/'
     scp.get(col_log, file_path)
-
     # Pass file location to file_list() after parsing it a bit to extract the actual file name
     file_name_index = col_log.rfind('/')
     file_name = col_log[file_name_index:]
@@ -206,6 +201,7 @@ def display_results(elasped_time_sec, file_size_kb, total_event_count):
     print 'Average Events Per Second (EPS): ' + str((total_event_count / elasped_time_sec))
     print 'Average Size Per Second (KBps): ' + str((file_size_kb / elasped_time_sec)) + '\n'
 
+
 def clean_up():
     # Clean up temporary directory if it exists
     try:
@@ -213,6 +209,7 @@ def clean_up():
         print 'Deleted temporary directory'
     except:
         print 'No temporary directory to remove'
+
 
 if __name__ == '__main__':
     main()
