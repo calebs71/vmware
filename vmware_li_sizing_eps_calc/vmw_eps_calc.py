@@ -25,21 +25,27 @@ from paramiko import SSHClient
 from scp import SCPClient
 
 global tmp_dir
-global default_vcd 
-global default_vsphere5
-global default_vsphere6
+global default_vcd_info
+global default_vcd_debug
+global default_vshpere5_info
+global default_vshpere5_debug
+global default_vsphere6_info
+global default_vsphere6_debug
 
 tmp_dir = '/tmp/vmw_eps_calc'
-default_vcd = '/opt/vmware/vcloud-director/logs/vcloud-container-debug.log.1'
-default_vsphere5 = ''
-default_vsphere6 = ''
+default_vcd_info = '/opt/vmware/vcloud-director/logs/vcloud-container-info.log.1'
+default_vcd_debug = '/opt/vmware/vcloud-director/logs/vcloud-container-debug.log.1'
+default_vshpere5_info = ''
+default_vshpere5_debug = ''
+default_vsphere6_info = ''
+default_vsphere6_debug = ''
 
 def main():
     atexit.register(clean_up)
     # Parse command line arguments to fine device class and specific log if requested
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--device', required=True, action='store', help='The type of VMware device (vcd, vsphere5, vsphere6)')
-    parser.add_argument('-l', '--log', required=False, action='store', help='Specific log file to inspect')
+    parser.add_argument('-l', '--log', required=False, action='store', help='Specific single log file to inspect')
     parser.add_argument('-r', '--host', required=False, action='store', help='Remote host to connect to over SSH. Localhost is implied if not used')
     parser.add_argument('-u', '--user', required=False, action='store', help='SSH user for remote hosts. Not required unless you specified a remote host')
     parser.add_argument('-p', '--password', required=False, action='store', help='SSH password for scripting. Recommened that you IGNORE and will be securely prompted instead')
@@ -51,13 +57,13 @@ def main():
     col_user = str(args.user)
     col_pass = str(args.password)
   
-    print '\n ---- Events Per Second (EPS) Calculator for VMware Products ---- \n'
+    print ('\n          ---- Events Per Second (EPS) Calculator for VMware Products ---- \n')
     
     # Operations for collecting from a remote host
     if col_host != 'None':
         if col_user == 'None':
             sys.exit('Please specify the user with the -u flag\n')
-        print 'Caution - Continuing to run this can potentially add unknown SSH host keys to the machine running this script\n'
+        print ('Caution - Continuing to run this can potentially add unknown SSH host keys to the machine running this script\n')
         if col_pass == 'None':
             col_pass = getpass.getpass()
         # Connect to remote host
@@ -68,43 +74,66 @@ def main():
         file_list(None, col_type)
     else:
         if col_host == 'None':
-            print 'Using custom log specified at command line\n'
+            print ('Using custom log specified at command line\n')
             file_list(col_log, col_type)
 
 
 def scp_connect(server, username, password, col_log, col_type):
-    print 'Connecting to remote host ' + server
+    print ('Connecting to remote host ' + server)
     ssh = SSHClient()
     #ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(server, 22, username, password)
-    scp = SCPClient(ssh.get_transport())
+    try:
+        ssh.connect(server, 22, username, password)
+        scp = SCPClient(ssh.get_transport())
+    except:
+        print ('Unable to connect, please check your credentials and hostname')
+        sys.exit()
     
     # Copy files to localdir
     if col_log == 'None' and col_type == 'vcd':
-        col_log = default_vcd
+        col_log = default_vcd_debug
+        col_log_info = default_vcd_info
     if col_log == 'None' and col_type == 'vsphere5':
-        col_log = default_vsphere5
+        col_log = default_vshpere5_debug
+        col_log_info = default_vshpere5_info
     if col_log == 'None' and col_type == 'vsphere6':
-        col_log = default_vsphere6
+        col_log = default_vsphere6_debug
+        col_log_info = default_vsphere6_info
 
     # Create local directory to hold log files
     try:
         os.stat(tmp_dir)
-        print 'Local temp folder exists'
+        print ('Local temp folder exists')
     except:
         os.mkdir(tmp_dir)
-        print 'Creating local temp folder'
-        
-    print 'Connected to remote host, attempting to copy ' + col_log + ' to localhost. This can take a a bit depending on your connection....\n'
+        print ('Creating local temp folder')
+    #attempting to grab debug log
+    print ('Connected to remote host\n')
     file_path = '/tmp/vmw_eps_calc/'
-    scp.get(col_log, file_path)
-    # Pass file location to file_list() after parsing it a bit to extract the actual file name
-    file_name_index = col_log.rfind('/')
-    file_name = col_log[file_name_index:]
-    file_path = tmp_dir + file_name
-    file_list(file_path, col_type)
-    scp.close()    
+    try:
+        print ('Attempting to copy ' + col_log + ' to localhost. This can take a a bit depending on your connection....\n')
+        scp.get(col_log, file_path)
+        # Pass file location to file_list() after parsing it a bit to extract the actual file name
+        file_name_index = col_log.rfind('/')
+        file_name = col_log[file_name_index:]
+        local_file_path = tmp_dir + file_name
+        print ('File copied successfully')
+        file_list(local_file_path, col_type)
+    except:
+        print ('Error retrieving log file ' + col_log)
+    try:
+        print ('Attempting to copy ' + col_log_info + ' to localhost. This can take a a bit depending on your connection....\n')
+        scp.get(col_log_info, file_path)
+        # Pass file location to file_list() after parsing it a bit to extract the actual file name
+        file_name_index = col_log_info.rfind('/')
+        file_name = col_log_info[file_name_index:]
+        local_file_path = tmp_dir + file_name
+        print ('File copied successfully')
+        file_list(local_file_path, col_type)
+    except:
+        print ('Error retrieving log file ' + col_log_info)
+    scp.close()
 
 
 def file_list(file_location, device_type):
@@ -113,41 +142,46 @@ def file_list(file_location, device_type):
         try:
             file_size_kb = int((os.path.getsize(file_location) / 1024))
             if file_size_kb:
-                # Pass file to parser
-                parse_vcd_log(file_location, file_size_kb)
+                if device_type == 'vcd':
+                    # Pass file to parser
+                    parse_ts_yr_sec1(file_location, file_size_kb)
         except:
-            print 'File does not exist or is empty'
+            print ('File does not exist or is empty')
     else:
         if device_type == 'vcd':
-            print 'Grabbing last full debug log for vCD in default location (' + default_vcd + ')\n'
+            print ('Grabbing last full logs for vCD in local default location\n')
             try:
-                file_size_kb = int((os.path.getsize(default_vcd) / 1024))
+                file_size_kb = int((os.path.getsize(default_vcd_info) / 1024))
+                file_size_kb = int((os.path.getsize(default_vcd_debug) / 1024))
             except:
-                print 'File does not exist or is empty'
+                print ('File does not exist or is empty')
             if file_size_kb:
                 # Pass file to parser
-                parse_vcd_log(default_vcd, file_size_kb)
+                parse_ts_yr_sec1(default_vcd_info, file_size_kb)
+                parse_ts_yr_sec1(default_vcd_debug, file_size_kb)
         if device_type == 'vsphere5':
-            print 'Grabbing last full debug log for vsphere5 in default location (' + default_vsphere5 + ')\n'
+            print ('Grabbing last full logs for vsphere5 in local default location\n')
             try:
-                file_size_kb = int((os.path.getsize(default_vsphere5) / 1024))
+                file_size_kb = int((os.path.getsize(default_vshpere5_info) / 1024))
+                file_size_kb = int((os.path.getsize(default_vshpere5_debug) / 1024))
             except:
-                print 'File does not exist or is empty'
+                print ('File does not exist or is empty')
             if file_size_kb:
                 # Pass file to parser
-                parse_vcd_log(default_vsphere5, file_size_kb)
+                parse_ts_yr_sec1(default_vshpere5_info, file_size_kb)
+                parse_ts_yr_sec1(default_vshpere5_debug, file_size_kb)
         if device_type == 'vsphere6':
-            print 'Grabbing last full debug log for vsphere6 in default location (' + default_vsphere6 + ')\n'           
+            print ('Grabbing last full logs for vsphere6 in local default location\n')
             try:
-                file_size_kb = int((os.path.getsize(default_vsphere6) / 1024))
+                file_size_kb = int((os.path.getsize(default_vsphere6_debug) / 1024))
             except:
-                print 'File does not exist or is empty'
+                print ('File does not exist or is empty')
             if file_size_kb:
                 # Pass file to parser
-                parse_vcd_log(default_vsphere6, file_size_kb)
+                parse_ts_yr_sec1(default_vsphere6_debug, file_size_kb)
 
 
-def parse_vcd_log(file_location, file_size_kb):
+def parse_ts_yr_sec1(file_location, file_size_kb):
     # Create list of timestamps in file
     timestamps = []
     
@@ -181,10 +215,11 @@ def parse_vcd_log(file_location, file_size_kb):
     et_mn = end_time_str[16:18]
     et_sc = end_time_str[19:21]
     
+    print ('Log File: ' + file_location)
     start_time = datetime.datetime(int(st_yr),int(st_mo),int(st_da),int(st_hr),int(st_mn),int(st_sc))
-    print 'First Recorded Event: ' + str(start_time)
+    print ('First Recorded Event: ' + str(start_time))
     end_time = datetime.datetime(int(et_yr),int(et_mo),int(et_da),int(et_hr),int(et_mn),int(et_sc))
-    print 'Last Recorded Event: ' + str(end_time) + '\n'
+    print ('Last Recorded Event: ' + str(end_time))
     
     # Find time span of logs in file
     elasped_time_sec = (end_time - start_time).seconds
@@ -194,21 +229,21 @@ def parse_vcd_log(file_location, file_size_kb):
 
 def display_results(elasped_time_sec, file_size_kb, total_event_count):
     # Show user all calculated information
-    print 'Time Recorded in Log (Seconds): ' + str(elasped_time_sec)
-    print 'Log File Size (KB): ' + str(file_size_kb)
-    print 'Count of Events: ' + str(total_event_count) + '\n'
-    print 'Based on your log file you are cuurently experiencing the below usage:'
-    print 'Average Events Per Second (EPS): ' + str((total_event_count / elasped_time_sec))
-    print 'Average Size Per Second (KBps): ' + str((file_size_kb / elasped_time_sec)) + '\n'
+    print ('Time Recorded in Log (Seconds): ' + str(elasped_time_sec))
+    print ('Log File Size (KB): ' + str(file_size_kb))
+    print ('Count of Events: ' + str(total_event_count) + '\n')
+    print ('Based on your log file you are cuurently experiencing the below usage:')
+    print ('Average Events Per Second (EPS): ' + str((total_event_count / elasped_time_sec)))
+    print ('Average Size Per Second (KBps): ' + str((file_size_kb / elasped_time_sec)) + '\n')
 
 
 def clean_up():
     # Clean up temporary directory if it exists
     try:
         shutil.rmtree(tmp_dir)
-        print 'Deleted temporary directory'
+        print ('Deleted temporary directory')
     except:
-        print 'No temporary directory to remove'
+        print ('No temporary directory to remove')
 
 
 if __name__ == '__main__':
