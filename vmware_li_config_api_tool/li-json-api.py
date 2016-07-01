@@ -5,11 +5,13 @@ This python program is built to reference values in a JSON configuration file fo
 Insight Server with the option to enforce configuration compliance with the gold master being defined
 in the JSON file. All this takes place over https using the Log Insight Configuration APIs. Keep in
 mind that Log Insight 3.3 is the minimum version requirement as that is the version where these APIs
-are available.
+are available. Both Python 2 and 3 are fully supported to prevent as many headaches as possible.
 
 Example of a JSON configuration file is below. Note - JSON DOES NOT support inline comments so the 
 comments beginning with # must be removed before use but are included to show you what each entry 
-in the configuration file is doing or defining.
+in the configuration file is doing or defining. If you don't want to go the JSON route just yet
+then feel free to try out the "-b" or build wizard option to interactivly generate a simplified
+JSON file.
 
 -------------------------------------
 {
@@ -80,6 +82,8 @@ import requests
 import json
 import time
 import argparse
+import getpass
+
 # Suppresses Insecure connection messages
 # Thanks - http://stackoverflow.com/questions/27981545/suppress-insecurerequestwarning-unverified-https-request-is-being-made-in-pytho
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -89,17 +93,154 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--file', required=False, action='store', help='Path to JSON configuration file containing the desired state')
 parser.add_argument('-r', '--remediate', required=False, action='count', help='If set to true or yes then script will automatically remediate issues')
 parser.add_argument('-d', '--doc', required=False, action='count',  help='Imbeded documentation')
+parser.add_argument('-b', '--build', required=False, action='count', help='Wizard to help build JSON configuration file')
 
 args = parser.parse_args()
-# File location for diagnostics
-#configDataStr = open('/home/caleb/Documents/LI API Management/li-test.json').read()
 
-# Do a bit of flag checking to make sure that stuff makes sense
-# Print documentation
+def jsonWizard():
+    print("\nWelcome to the interactive configuration file builder; built for us mere mortals who don't dream in JSON.")
+    print("This wizard will guide you through building your first, simplified, JSON based configuration file.")
+    print("Trust me though, you're going to want to build more complicated JSON files later on down the road using")
+    print("the template in the help since it's much more robust!\n")
+    # Check for Python3 and use input if found
+    if sys.version_info[0] > 2:
+        wz_fqdn = input('Please enter the FQDN or IP of your Log Insight Server: ')
+        wz_password = getpass.getpass(prompt="Enter the Log Insight Server's Admin password: ")
+        wz_license = input('Enter the vRLI license key: ')
+        wz_emailSender = input('Enter sending email address for this LI server to use: ')
+        wz_emailServer = input('Enter the SMTP mail server to use: ')
+        #wz_emailPort = input('Enter the SMTP port to use: ')
+        wz_emailAuth = input('Does you SMTP Server require authentication (y/n): ')
+        while wz_emailAuth.lower() != 'y' and wz_emailAuth.lower() != 'n':
+            print('Please choose "y" or "n"')
+            wz_emailAuth = input('Does you SMTP Server require authentication (y/n): ')
+        if wz_emailAuth.lower() == 'n':
+            print('Skipping that then...')
+        elif wz_emailAuth.lower() == 'y':
+            wz_emailUser = input('Enter your SMTP username: ')
+            wz_emailPassword = getpass.getpass(prompt="Enter your SMTP password: ")
+        wz_adEnable = input('Do you wish to enable Active Directory authentication? (y/n): ')
+        while wz_adEnable.lower() != 'y' and wz_adEnable.lower() != 'n':
+            print('Please choose "y" or "n"')
+            wz_adEnable = input('Do you wish to enable Active Directory authentication? (y/n): ')
+        if wz_adEnable.lower() == 'n':
+            print('Skipping AD integration as requested')
+        elif wz_adEnable.lower() == 'y':
+            wz_adDomain = input('Enter the domain to use: ')
+            wz_adUsername = input('Enter the Active Directory user to use for directory lookups: ')
+            wz_adPassword = getpass.getpass(prompt="Enter the AD User's password: ")
+            wz_adAddGroup = input('Enter the name of an Active Directory Group to make Admins on the Log Insight Server: ')
+        wz_ntp_raw = input('Enter an NTP Server to use: ')
+        wz_ntp = []
+        wz_ntp.append(wz_ntp_raw)
+        wz_location = input('Please enter the location/filename to save this configuration as: ')
+    # Else use python2 (raw_input) method to gather user input
+    else:
+        wz_fqdn = raw_input('Please enter the FQDN or IP of your Log Insight Server: ')
+        wz_password = getpass.getpass(prompt="Enter the Log Insight Server's Admin password: ")
+        wz_license = raw_input('Enter the vRLI license key: ')
+        wz_emailSender = raw_input('Enter sending email address for this LI server to use: ')
+        wz_emailServer = raw_input('Enter the SMTP mail server to use: ')
+        #wz_emailPort = raw_input('Enter the SMTP port to use: ')
+        wz_emailAuth = raw_input('Does you SMTP Server require authentication (Y/N): ')
+        while wz_emailAuth.lower() != 'y' and wz_emailAuth.lower() != 'n':
+            print('Please choose "y" or "n"')
+            wz_emailAuth = raw_input('Does you SMTP Server require authentication (Y/N): ')
+        if wz_emailAuth.lower() == 'n':
+            print('Skipping that then...')
+        elif wz_emailAuth.lower() == 'y':
+            wz_emailUser = raw_input('Enter your SMTP username: ')
+            wz_emailPassword = getpass.getpass(prompt="Enter your SMTP password: ")
+        wz_adEnable = raw_input('Do you wish to enable Active Directory authentication? (y/n): ')
+        while wz_adEnable.lower() != 'y' and wz_adEnable.lower() != 'n':
+            print('Please choose "y" or "n"')
+            wz_adEnable = raw_input('Do you wish to enable Active Directory authentication? (y/n): ')
+        if wz_adEnable.lower() == 'n':
+            print('Skipping AD integration as requested')
+        elif wz_adEnable.lower() == 'y':
+            wz_adDomain = raw_input('Enter the domain to use: ')
+            wz_adUsername = raw_input('Enter the Active Directory user to use for directory lookups: ')
+            wz_adPassword = getpass.getpass(prompt="Enter the AD User's password: ")
+            wz_adAddGroup = raw_input('Enter the name of an Active Directory Group to make Admins on the Log Insight Server: ')
+        wz_ntp_raw = raw_input('Enter an NTP Server to use: ')
+        wz_ntp = []
+        wz_ntp.append(wz_ntp_raw)
+        wz_location = raw_input('Please enter the location/filename to save this configuration as: ')
+
+    # Time to make it all JSON
+    wz_data = {}
+    wz_data['fqdn'] = wz_fqdn
+    wz_data['version'] = ''
+    wz_data['user'] = 'admin'
+    wz_data['password'] = wz_password
+    wz_data['auth_provider'] = 'Local'
+    wz_data['license'] = wz_license
+    wz_data['email_sender'] = wz_emailSender
+    wz_data['email_server'] = wz_emailServer
+    wz_data['email_port'] = '25'
+    if 'wz_emailUser' in locals():
+        wz_data['email_sslAuth'] = 'false'
+        wz_data['email_tls'] = 'false'
+        wz_data['email_user'] = wz_emailUser
+        wz_data['email_password'] = wz_emailPassword
+    else:
+        wz_data['email_sslAuth'] = 'false'
+        wz_data['email_tls'] = 'false'
+        wz_data['email_user'] = ''
+        wz_data['email_password'] = ''
+    wz_data['forward_name'] = ''
+    wz_data['forward_fqdn'] = ''
+    wz_data['forward_protocol'] = ''
+    wz_data['forward_tags'] = ''
+    wz_data['forward_sslEnabled'] = ''
+    wz_data['forward_port'] = ''
+    wz_data['forward_diskCacheSize'] = ''
+    wz_data['forward_workerCount'] = ''
+    wz_data['forward_filter'] = ''
+    wz_data['content_packs'] = ''
+    if wz_adEnable.lower() == 'y':
+        wz_data['ad_enable'] = 'true'
+        wz_data['ad_domain'] = wz_adDomain
+        wz_data['ad_username'] = wz_adUsername
+        wz_data['ad_password'] = wz_adPassword
+        wz_data['ad_connType'] = 'STANDARD'
+        wz_data['ad_port'] = 389
+        wz_data['ad_sslOnly'] = 'false'
+        wz_data['ac_ad_group'] = wz_adAddGroup
+        wz_data['ac_role_uuid'] = '00000000-0000-0000-0000-000000000001'
+    else:
+        wz_data['ad_enable'] = ''
+        wz_data['ad_domain'] = ''
+        wz_data['ad_username'] = ''
+        wz_data['ad_password'] = ''
+        wz_data['ad_connType'] = ''
+        wz_data['ad_port'] = ''
+        wz_data['ad_sslOnly'] = ''
+        wz_data['ac_ad_group'] = ''
+        wz_data['ac_role_uuid'] = ''
+    wz_data['ntp_servers'] = wz_ntp
+
+    wz_json = json.dumps(wz_data)
+
+    # Need to save to a file
+    try:
+        saveFile = open(wz_location,'w')
+        saveFile.write(wz_json)
+        print('\nYour JSON file has been saved to ' + wz_location + '\n')
+    except:
+        print('Unable to save file')
+# ---- Wizard Ends ----
+
+# Print documentation if requested
 if args.doc:
-    print (__doc__)
+    print(__doc__)
     sys.exit()
-# If no documentation is requested check the rest...
+# Execute JSON builder if requested
+if args.build:
+    if (int(args.build) > 0):
+        jsonWizard()
+        sys.exit()
+# If documentation or wizard is not requested check the rest...
 else:
     try:
         if args.file == None:
@@ -110,7 +251,7 @@ else:
         else:
             remediateFlag = 0
     except:
-        print ('Did you forget to specify an argument? Maybe try -h for help or -d for more robust documentation')
+        print('Did you forget to specify an argument? Maybe try -h for help, -b for the configuration build wizard, or -d for more robust documentation.')
         sys.exit()
 
 configFile = str(args.file)
@@ -118,7 +259,7 @@ configFile = str(args.file)
 try:
     configDataStr = open(configFile).read()
 except:
-    print ('ERROR - Failed to open the specified file')
+    print('ERROR - Failed to open the specified file')
     sys.exit()
     
 configData = json.loads(configDataStr)
@@ -132,9 +273,9 @@ def main():
 
 
     if remediateFlag > 0:
-        print ('*Remediation flag detected* - Will automatically remediate issues\n')
+        print('*Remediation flag detected* - Will automatically remediate issues\n')
     else:
-        print ('No remediation selected, set the -r flag if you wish to automatically remediate issues.\n')
+        print('No remediation selected, set the -r flag if you wish to automatically remediate issues.\n')
 
     # Connect to the LI Server and get a Bearer Token
     sessionAuth = connectToServer()
@@ -166,9 +307,9 @@ def connectToServer():
     if len(configData['auth_provider']) > 0 and \
        len(configData['user']) > 0 and \
        len(configData['password']) > 0:
-           print ('Connecting to Log Insight')
+           print('Connecting to Log Insight')
     else:
-        print ('ERROR - Needed information is missing! Please check your username, password and auth_provider')
+        print('ERROR - Needed information is missing! Please check your username, password and auth_provider')
         sys.exit()
     
     authUrl = str(baseUrl) + '/api/v1/sessions'
@@ -182,18 +323,18 @@ def connectToServer():
     try:
         authSession = connResponse['sessionId']
         if len(authSession) > 10:
-            print ('Successfully connected to Log Insight')
+            print('Successfully connected to Log Insight')
             authSessionKey = 'Bearer ' + authSession
             return authSessionKey
     except:
-            print ('-!!ERROR!!- Unable to connect to the Log Insight Server. Please check your credentials.\n')
+            print('-!!ERROR!!- Unable to connect to the Log Insight Server. Please check your credentials.\n')
             sys.exit()
 
 
 def getVersion(authHeadersJson):
     # Sanity check to make sure all data is present
     if len(configData['version']) == 0:
-        print ('Desired version NOT specified in JSON template - Skipping Test')
+        print('Desired version NOT specified in JSON template - Skipping Test')
         return
     
     try:
@@ -202,12 +343,12 @@ def getVersion(authHeadersJson):
         liReleaseName = str(version['releaseName'])
         liVersion = str(version['version'])
     
-        print ('Log Insight Server at ' + str(configData['fqdn']) + ' running version ' + liVersion + ' ' + liReleaseName + '\n')
+        print('Log Insight Server at ' + str(configData['fqdn']) + ' running version ' + liVersion + ' ' + liReleaseName + '\n')
 
         if str(liVersion).lower() == str(configData['version']).lower():
-            print ('Version matches desired state')
+            print('Version matches desired state')
         else:
-            print ('-!!WARN!! - Version DOES NOT match desired state. No Automatic remediation available')
+            print('-!!WARN!! - Version DOES NOT match desired state. No Automatic remediation available')
     except:
         print('-!!ERROR!! - Unable to get Log Insight version')
         
@@ -215,13 +356,13 @@ def getVersion(authHeadersJson):
     majorRelease = liVersion.split('.')[0]
     minorRelease = liVersion.split('.')[1]
     if int(majorRelease) <= 3 and int(minorRelease) < 3:
-        print ('I\'m sorry but this Log Insight Server is not running version 3.3 or newer so the API\'s aren\'t available. Please upgrade your LI server\n')
+        print('I\'m sorry but this Log Insight Server is not running version 3.3 or newer so the API\'s aren\'t available. Please upgrade your LI server\n')
         sys.exit()
 
 def getLicense(authHeadersJson):
     # Sanity check to make sure all data is present
     if len(configData['license']) == 0:
-        print ('Desired license NOT specified in JSON template - Skipping Test')
+        print('Desired license NOT specified in JSON template - Skipping Test')
         return
     
     try:
@@ -229,9 +370,9 @@ def getLicense(authHeadersJson):
         license = requests.get(str(licenseUrl), headers = authHeadersJson, verify = False)
         licenseDetails = license.json()
         if str(configData['license']).lower() in str(licenseDetails).lower():
-            print ('License information matches desired state')
+            print('License information matches desired state')
         else:
-            print ('-!!WARN!!- License information DOES NOT match desired state')
+            print('-!!WARN!!- License information DOES NOT match desired state')
             if remediateFlag > 0:
                 setLicense(authHeadersJson)
     except:
@@ -241,21 +382,22 @@ def getLicense(authHeadersJson):
 def setLicense(authHeadersJson):
     # Sanity check to make sure all data is present
     if len(configData['license']) == 0:
-        print ('Desired license NOT specified in JSON template - Skipping Remediation')
+        print('Desired license NOT specified in JSON template - Skipping Remediation')
         return
     
-    print ('Executing license remediation')
+    print('Executing license remediation')
     licenseUrl = str(baseUrl) + '/api/v1/licenses'
     buildJson = '{' + \
                 '"key":"' + configData['license'] + '"' + \
                 '}'
-    try:
-        configLicense = requests.post(str(licenseUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-        # Was seeing issues with a loop presumably due to delay on the server side
+    configLicense = requests.post(str(licenseUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    if configLicense.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate License Configuration - See error details below ')
+        print(' - Status Code: ' + str(configLicense.status_code))
+        print(' - Error Details: ' + str(configLicense.text))
+    else:
         time.sleep(3)
         getLicense(authHeadersJson)
-    except:
-        print ('An error occurred attempting to remediate')
 
 
 def getEmail(authHeadersJson):
@@ -278,9 +420,9 @@ def getEmail(authHeadersJson):
            str(emailDetails['sslAuth']).lower() == str(configData['email_sslAuth']).lower() and \
            str(emailDetails['tls']).lower() == str(configData['email_tls']).lower() and \
            str(emailDetails['login']).lower() == str(configData['email_user']).lower():
-            print ('Email configuration matches desired state')
+            print('Email configuration matches desired state')
         else:
-            print ('-!!WARN!!- Email configuration DOES NOT match desired state')
+            print('-!!WARN!!- Email configuration DOES NOT match desired state')
             if remediateFlag > 0: 
                 setEmail(authHeadersJson)
     except:
@@ -297,7 +439,7 @@ def setEmail(authHeadersJson):
         print('Desired email configuration NOT specified in JSON template - Skipping Remediation')
         return
     
-    print ('Executing email remediation')
+    print('Executing email remediation')
     notificationUrl = str(baseUrl) + '/api/v1/notifications'
     buildJson = '{' + \
                 '"channels":[{"type":"email","config":{' + \
@@ -309,12 +451,14 @@ def setEmail(authHeadersJson):
                 '"login":"' + configData['email_user'] + '",' + \
                 '"password":"' + configData['email_password'] + '"' + \
                 '}}]}'
-    try:
-        configEmail = requests.put(notificationUrl, headers = authHeadersJson, verify = False, data = str(buildJson))
+    configEmail = requests.put(notificationUrl, headers = authHeadersJson, verify = False, data = str(buildJson))
+    if configEmail.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate Email Configuration - See error details below ')
+        print(' - Status Code: ' + str(configEmail.status_code))
+        print(' - Error Details: ' + str(configEmail.text))
+    else:
         time.sleep(3)
         getEmail(authHeadersJson)
-    except:
-        print ('An error occurred attempting to remediate')
 
 
 def getForwarder(authHeadersJson):
@@ -342,7 +486,7 @@ def getForwarder(authHeadersJson):
                 # First simple check
                 if str(forwarderDetails['id']).lower() == str(configData['forward_name']).lower():
                     # If the simple check passes then do a through check to see if we need to update the record
-                    #print ('Forwarder ' + str(forwarderDetails['id']) + ' configuration exists, requires deeper inspection...')
+                    #print('Forwarder ' + str(forwarderDetails['id']) + ' configuration exists, requires deeper inspection...')
                     if str(forwarderDetails['protocol']).lower() == str(configData['forward_protocol']).lower() and \
                        str(forwarderDetails['tags']).lower() == str(configData['forward_tags']).lower() and \
                        str(forwarderDetails['sslEnabled']).lower() == str(configData['forward_sslEnabled']).lower() and \
@@ -351,7 +495,7 @@ def getForwarder(authHeadersJson):
                        str(forwarderDetails['diskCacheSize']).lower() == str(configData['forward_diskCacheSize']).lower() and \
                        str(forwarderDetails['host']).lower() == str(configData['forward_fqdn']).lower() and \
                        str(forwarderDetails['workerCount']).lower() == str(configData['forward_workerCount']).lower():
-                        print ('Forwarder configuration matches desired state')
+                        print('Forwarder configuration matches desired state')
                     else:
                         print('-!!WARN!!- Forwader configuration DOES NOT match desired state')
                         if remediateFlag > 0:
@@ -362,7 +506,7 @@ def getForwarder(authHeadersJson):
                     forwarderLen = forwarderLen - 1
         except:
             # Try will fail if no forwarder is configured
-            print ('-!!WARN!!- No Forwarder configuration exists')
+            print('-!!WARN!!- No Forwarder configuration exists')
             if remediateFlag > 0:
                 setForwarder(authHeadersJson)
         if forwarderLen != 1:
@@ -387,7 +531,7 @@ def updateForwarder(authHeadersJson):
         print('Desired Forwader configuration NOT specified in JSON template - Skipping Remediation')
         return
     
-    print ('Executing forwarder remediation - updating existing')
+    print('Executing forwarder remediation - updating existing')
     forwarderUrl = str(baseUrl) + '/api/v1/forwarding'
     
     #Odd looking replace statement below is required to comment out double quotes in extended syntax and remove the u for unicode.
@@ -402,12 +546,14 @@ def updateForwarder(authHeadersJson):
                 '"workerCount":' + str(configData['forward_workerCount']) + ',' + \
                 '"filter":"' + str(configData['forward_filter']).replace('"','\\"') + '"' + \
                 '}'
-    try:
-        configForwarder = requests.put(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    configForwarder = requests.put(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    if configForwarder.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate Forwarder Configuration - See error details below ')
+        print(' - Status Code: ' + str(configForwarder.status_code))
+        print(' - Error Details: ' + str(configForwarder.text))
+    else:
         time.sleep(3)
         getForwarder(authHeadersJson)
-    except:
-        print ('An error occurred attempting to remediate')
 
 
 def setForwarder(authHeadersJson):
@@ -423,7 +569,7 @@ def setForwarder(authHeadersJson):
         print('Desired Forwader configuration NOT specified in JSON template - Skipping Remediation')
         return
     
-    print ('Executing forwarder remediation - creating new')
+    print('Executing forwarder remediation - creating new')
     forwarderUrl = str(baseUrl) + '/api/v1/forwarding'
     
     #Odd looking replace statement below is required to comment out double quotes in extended syntax and remove the u for unicode.
@@ -438,12 +584,14 @@ def setForwarder(authHeadersJson):
                 '"workerCount":' + str(configData['forward_workerCount']) + ',' + \
                 '"filter":"' + str(configData['forward_filter']).replace('"','\\"') + '"' + \
                 '}'
-    try:
-        configForwarder = requests.post(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    configForwarder = requests.post(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    if configForwarder.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate Forwarder Configuration - See error details below ')
+        print(' - Status Code: ' + str(configForwarder.status_code))
+        print(' - Error Details: ' + str(configForwarder.text))
+    else:
         time.sleep(3)
         getForwarder(authHeadersJson)
-    except:
-        print ('An error occurred attempting to remediate')
 
 
 def getAd(authHeadersJson):
@@ -462,26 +610,26 @@ def getAd(authHeadersJson):
         adUrl = str(baseUrl) + '/api/v1/ad/config'
         ad = requests.get(str(adUrl), headers = authHeadersJson, verify = False).json()
         if str(ad['enableAD']).lower() == 'false':
-             print ('AD authentication DOES NOT match desired state')
+             print('-!!WARN!!- AD Configuration DOES NOT match desired state')
              if remediateFlag > 0:
                  setAd(authHeadersJson)
         if str(ad['enableAD']).lower() == 'true':
-            #print ('AD Authentication enabled, verifying settings')
+            #print('AD Authentication enabled, verifying settings')
             if str(ad['domain']).lower() == str(configData['ad_domain']).lower() and \
                str(ad['username']).lower() == str(configData['ad_username']).lower() and \
                str(ad['connType']).lower() == str(configData['ad_connType']).lower() and \
                str(ad['sslOnly']).lower() == str(configData['ad_sslOnly']).lower():
                 if str(ad['connType']).lower() == 'custom':
                     if str(ad['port']).lower() == str(configData['ad_port']).lower():
-                        print ('AD Configuration matches desired state')
+                        print('AD Configuration matches desired state')
                     else:
-                        print ('-!!WARN!!- AD Configuration DOES NOT match desired state')
+                        print('-!!WARN!!- AD Configuration DOES NOT match desired state')
                         if remediateFlag > 0:
                             setAd(authHeadersJson)
                 else:
-                    print ('AD Configuration matches desired state')
+                    print('AD Configuration matches desired state')
             else:
-                print ('-!!WARN!!- AD Configuration DOES NOT match desired state')
+                print('-!!WARN!!- AD Configuration DOES NOT match desired state')
                 if remediateFlag > 0:
                     setAd(authHeadersJson)
     except:
@@ -499,7 +647,7 @@ def setAd(authHeadersJson):
         print('Desired Active Directory configuration NOT specified in JSON template - Skipping Remediation')
         return
     
-    print ('Executing AD authentication remediation')
+    print('Executing AD authentication remediation')
     adUrl = str(baseUrl) + '/api/v1/ad/config'
     buildJson = '{' + \
                 '"enableAD":"' + configData['ad_enable'] + '",' + \
@@ -510,12 +658,14 @@ def setAd(authHeadersJson):
                 '"port":"' + configData['ad_port'] + '",' + \
                 '"sslOnly":"' + configData['ad_sslOnly'] + '"' + \
                 '}'
-    try:
-        configAd = requests.post(str(adUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    configAd = requests.post(str(adUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    if configAd.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate AD Configuration - See error details below ')
+        print(' - Status Code: ' + str(configAd.status_code))
+        print(' - Error Details: ' + str(configAd.text))
+    else:
         time.sleep(3)
         getAd(authHeadersJson)
-    except:
-        print ('An error occurred attempting to remediate')
 
 
 def getReqContentPacks(authHeadersJson):
@@ -540,13 +690,13 @@ def getReqContentPacks(authHeadersJson):
                 inContentPackVer = str(inContentPack['contentVersion'])
                 #print 'Installed: ' +inContentPackName + ' ' + inContentPackVer
                 if str(inContentPackName).lower() == str(reqContentPack).lower():
-                    print ('Required Content Pack ' + str(reqContentPack) + ' installed, checking version...')
+                    print('Required Content Pack ' + str(reqContentPack) + ' installed, checking version...')
                     # We should make this only alert if version is less than specified version
                     # Slightly nmore complicated than decimal operation due to x.y.z versioning and may include letters in the future. Putting this off for now
                     if str(inContentPackVer).lower() == str(reqContentPackVer).lower():
-                        print ('Version matches, check successful')
+                        print('Version matches, check successful')
                     else:
-                        print ('-!!WARN!!- Content Pack ' + reqContentPack + ' installed but at incorrent version')
+                        print('-!!WARN!!- Content Pack ' + reqContentPack + ' installed but at incorrent version')
                         print('-- Automatic remediation not available in this version --')
                 else:
                     #print 'Content Pack does not match'
@@ -555,7 +705,7 @@ def getReqContentPacks(authHeadersJson):
 
             if inContentPackLen != 1:
                 #print str(inContentPackLen)
-                print ('-!!WARN!!- No match installed for Content Pack ' + str(reqContentPack))
+                print('-!!WARN!!- No match installed for Content Pack ' + str(reqContentPack))
                 print('-- Automatic remediation not available in this version --')
     except:
         print('-!!ERROR!! - Unable to get Content Pack information')
@@ -563,7 +713,7 @@ def getReqContentPacks(authHeadersJson):
 
 # Placeholder for remediation function. Want to be able to call simple operation, not ship whole CP but that may be unaviodable
 def setContentPackVcd(authHeadersJson):
-    print ('')
+    print('')
 
 
 def getAccessControls(authHeadersJson):
@@ -580,20 +730,20 @@ def getAccessControls(authHeadersJson):
         inAccessControlsLen = len(inAccessControls)
         
         for accessControl in inAccessControls:
-            #print (str(accessControl['name']))
+            #print(str(accessControl['name']))
             if str(accessControl['name'].lower()) == configData['ac_ad_group'].lower():
-                #print ('Access Control group membership matches desired state')
+                #print('Access Control group membership matches desired state')
                 groupIds = accessControl['groupIds']
                 groupIdsLen = len(groupIds)
                 for groupId in groupIds:
-                    #print (groupId)
+                    #print(groupId)
                     if str(groupId).lower() == str(configData['ac_role_uuid']).lower():
-                        print ('Access Control Group matches desired state')
+                        print('Access Control Group matches desired state')
                     else:
                         groupIdsLen = groupIdsLen -1
                 if groupIdsLen != 1:
                     # Need to fix this once I have more API information
-                    print ('-!!WARN!!- Access Control Group DOES NOT match desired state - AD member added to incorrect Log Insight Role')
+                    print('-!!WARN!!- Access Control Group DOES NOT match desired state - AD member added to incorrect Log Insight Role')
                     if remediateFlag > 0:
                         editAccessControl(authHeadersJson)
             else:
@@ -626,15 +776,17 @@ def addAccessControl(authHeadersJson):
         return
     
     # Technical debt, only single group supported
-    print ('Executing Access Contorl Group addition remediation')
+    print('Executing Access Contorl Group addition remediation')
     accessControlsUrl = str(baseUrl) + '/api/v1/adgroups'
     buildJson = buildAccessControlJson()
-    try:
-        configAccessControl = requests.post(str(accessControlsUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    configAccessControl = requests.post(str(accessControlsUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    if configAccessControl.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate Access Control Configuration - See error details below ')
+        print(' - Status Code: ' + str(configAccessControl.status_code))
+        print(' - Error Details: ' + str(configAccessControl.text))
+    else:
         time.sleep(3)
         getAccessControls(authHeadersJson)
-    except:
-        print ('An error occurred attempting to remediate')
 
 
 def editAccessControl(authHeadersJson):
@@ -644,15 +796,18 @@ def editAccessControl(authHeadersJson):
         print('Desired Active Directory configuration NOT specified in JSON template - Skipping Test')
         return
     
-    print ('Executing Access Contorl Group modification remediation')
+    print('Executing Access Contorl Group modification remediation')
     accessControlsUrl = str(baseUrl) + '/api/v1/adgroups/ad/' + str(configData['ad_domain']) + '/' + str(configData['ac_ad_group'])
     buildJson = buildAccessControlJson()
-    try:
-        configAccessControl = requests.post(str(accessControlsUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    configAccessControl = requests.post(str(accessControlsUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    if configAccessControl.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate Access Control Configuration - See error details below ')
+        print(' - Status Code: ' + str(configAccessControl.status_code))
+        print(' - Error Details: ' + str(configAccessControl.text))
+    else:
         time.sleep(3)
         getAccessControls(authHeadersJson)
-    except:
-        print ('An error occurred attempting to remediate')
+
 
 
 def getNtp(authHeadersJson):
@@ -670,9 +825,9 @@ def getNtp(authHeadersJson):
             inNtpServers = inNtp['ntpServers']
             # Instead of iterating through each one to make sure they are present this is faster/cheaper
             if str(inNtpServers).lower() == str(configData['ntp_servers']).lower():
-                print ('NTP Servers match desired state')
+                print('NTP Servers match desired state')
             else:
-                print ('-!!WARN!!- NTP Server configuration DOES NOT match desired state')
+                print('-!!WARN!!- NTP Server configuration DOES NOT match desired state')
                 if remediateFlag > 0:
                     setNtp(authHeadersJson)
         except:
@@ -691,18 +846,20 @@ def setNtp(authHeadersJson):
     
     #Have list of NTP Servers that need iterated through
     #Potential Technical debt, not allowing ESXi host sync since it's not recommended anyway
-    print ('Executing NTP remediation')
+    print('Executing NTP remediation')
     ntpUrl = str(baseUrl) + '/api/v1/time/config'
     buildJson = '{' + \
                 '"timeReference":"NTP_SERVER",' + \
-                '"ntpServers":' + str(configData['ntp_servers']).replace("'",'"') + \
+                '"ntpServers":' + str(configData['ntp_servers']).replace("'",'"').replace('u"','"') + \
                 '}'
-    try:
-        requests.post(str(ntpUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    configNtp =  requests.post(str(ntpUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    if configNtp.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate NTP Configuration - See error details below ')
+        print(' - Status Code: ' + str(configNtp.status_code))
+        print(' - Error Details: ' + str(configNtp.text))
+    else:
         time.sleep(3)
         getNtp(authHeadersJson)
-    except:
-        print ('An error occurred attempting to remediate')
 
 
 if __name__ == '__main__':
