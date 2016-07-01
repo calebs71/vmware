@@ -269,7 +269,8 @@ baseUrl = 'https://' + configData['fqdn']
 unAuthHeaders = {"Content-Type":"application/json"}
 
 def main():
-    print('\n-- Welcome to the Log Insight Configuration API Audit and Standalone Remediation Tool --\n')
+    print('\n-- Welcome to the Log Insight Configuration API Audit and Standalone Remediation Tool --')
+    print('        This code is not released, supported by or related to VMware in any way.\n')
 
 
     if remediateFlag > 0:
