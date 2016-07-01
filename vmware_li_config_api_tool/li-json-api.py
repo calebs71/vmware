@@ -97,77 +97,54 @@ parser.add_argument('-b', '--build', required=False, action='count', help='Wizar
 
 args = parser.parse_args()
 
+
+def userQuery(varText):
+    # Figures out which version of Python is being used to call correct method of user interaction
+    if sys.version_info[0] > 2:
+        userText = input(varText)
+        return userText
+    else:
+        userText = raw_input(varText)
+        return userText
+
+
 def jsonWizard():
     print("\nWelcome to the interactive configuration file builder; built for us mere mortals who don't dream in JSON.")
     print("This wizard will guide you through building your first, simplified, JSON based configuration file.")
     print("Trust me though, you're going to want to build more complicated JSON files later on down the road using")
     print("the template in the help since it's much more robust!\n")
-    # Check for Python3 and use input if found
-    if sys.version_info[0] > 2:
-        wz_fqdn = input('Please enter the FQDN or IP of your Log Insight Server: ')
-        wz_password = getpass.getpass(prompt="Enter the Log Insight Server's Admin password: ")
-        wz_license = input('Enter the vRLI license key: ')
-        wz_emailSender = input('Enter sending email address for this LI server to use: ')
-        wz_emailServer = input('Enter the SMTP mail server to use: ')
-        #wz_emailPort = input('Enter the SMTP port to use: ')
-        wz_emailAuth = input('Does you SMTP Server require authentication (y/n): ')
-        while wz_emailAuth.lower() != 'y' and wz_emailAuth.lower() != 'n':
-            print('Please choose "y" or "n"')
-            wz_emailAuth = input('Does you SMTP Server require authentication (y/n): ')
-        if wz_emailAuth.lower() == 'n':
-            print('Skipping that then...')
-        elif wz_emailAuth.lower() == 'y':
-            wz_emailUser = input('Enter your SMTP username: ')
-            wz_emailPassword = getpass.getpass(prompt="Enter your SMTP password: ")
-        wz_adEnable = input('Do you wish to enable Active Directory authentication? (y/n): ')
-        while wz_adEnable.lower() != 'y' and wz_adEnable.lower() != 'n':
-            print('Please choose "y" or "n"')
-            wz_adEnable = input('Do you wish to enable Active Directory authentication? (y/n): ')
-        if wz_adEnable.lower() == 'n':
-            print('Skipping AD integration as requested')
-        elif wz_adEnable.lower() == 'y':
-            wz_adDomain = input('Enter the domain to use: ')
-            wz_adUsername = input('Enter the Active Directory user to use for directory lookups: ')
-            wz_adPassword = getpass.getpass(prompt="Enter the AD User's password: ")
-            wz_adAddGroup = input('Enter the name of an Active Directory Group to make Admins on the Log Insight Server: ')
-        wz_ntp_raw = input('Enter an NTP Server to use: ')
-        wz_ntp = []
-        wz_ntp.append(wz_ntp_raw)
-        wz_location = input('Please enter the location/filename to save this configuration as: ')
-    # Else use python2 (raw_input) method to gather user input
-    else:
-        wz_fqdn = raw_input('Please enter the FQDN or IP of your Log Insight Server: ')
-        wz_password = getpass.getpass(prompt="Enter the Log Insight Server's Admin password: ")
-        wz_license = raw_input('Enter the vRLI license key: ')
-        wz_emailSender = raw_input('Enter sending email address for this LI server to use: ')
-        wz_emailServer = raw_input('Enter the SMTP mail server to use: ')
-        #wz_emailPort = raw_input('Enter the SMTP port to use: ')
-        wz_emailAuth = raw_input('Does you SMTP Server require authentication (Y/N): ')
-        while wz_emailAuth.lower() != 'y' and wz_emailAuth.lower() != 'n':
-            print('Please choose "y" or "n"')
-            wz_emailAuth = raw_input('Does you SMTP Server require authentication (Y/N): ')
-        if wz_emailAuth.lower() == 'n':
-            print('Skipping that then...')
-        elif wz_emailAuth.lower() == 'y':
-            wz_emailUser = raw_input('Enter your SMTP username: ')
-            wz_emailPassword = getpass.getpass(prompt="Enter your SMTP password: ")
-        wz_adEnable = raw_input('Do you wish to enable Active Directory authentication? (y/n): ')
-        while wz_adEnable.lower() != 'y' and wz_adEnable.lower() != 'n':
-            print('Please choose "y" or "n"')
-            wz_adEnable = raw_input('Do you wish to enable Active Directory authentication? (y/n): ')
-        if wz_adEnable.lower() == 'n':
-            print('Skipping AD integration as requested')
-        elif wz_adEnable.lower() == 'y':
-            wz_adDomain = raw_input('Enter the domain to use: ')
-            wz_adUsername = raw_input('Enter the Active Directory user to use for directory lookups: ')
-            wz_adPassword = getpass.getpass(prompt="Enter the AD User's password: ")
-            wz_adAddGroup = raw_input('Enter the name of an Active Directory Group to make Admins on the Log Insight Server: ')
-        wz_ntp_raw = raw_input('Enter an NTP Server to use: ')
-        wz_ntp = []
-        wz_ntp.append(wz_ntp_raw)
-        wz_location = raw_input('Please enter the location/filename to save this configuration as: ')
 
-    # Time to make it all JSON
+    wz_fqdn = userQuery('Please enter the FQDN or IP of your Log Insight Server: ')
+    wz_password = getpass.getpass(prompt="Enter the Log Insight Server's Admin password: ")
+    wz_license = userQuery('Enter the vRLI license key: ')
+    wz_emailSender = userQuery('Enter sending email address for this LI server to use: ')
+    wz_emailServer = userQuery('Enter the SMTP mail server to use: ')
+    wz_emailAuth = userQuery('Does you SMTP Server require authentication (y/n): ')
+    while wz_emailAuth.lower() != 'y' and wz_emailAuth.lower() != 'n':
+        print('Please choose "y" or "n"')
+        wz_emailAuth = userQuery('Does you SMTP Server require authentication (y/n): ')
+    if wz_emailAuth.lower() == 'n':
+        print('Skipping that then...')
+    elif wz_emailAuth.lower() == 'y':
+        wz_emailUser = userQuery('Enter your SMTP username: ')
+        wz_emailPassword = getpass.getpass(prompt="Enter your SMTP password: ")
+    wz_adEnable = userQuery('Do you wish to enable Active Directory authentication? (y/n): ')
+    while wz_adEnable.lower() != 'y' and wz_adEnable.lower() != 'n':
+        print('Please choose "y" or "n"')
+        wz_adEnable = userQuery('Do you wish to enable Active Directory authentication? (y/n): ')
+    if wz_adEnable.lower() == 'n':
+        print('Skipping AD integration as requested')
+    elif wz_adEnable.lower() == 'y':
+        wz_adDomain = userQuery('Enter the domain to use: ')
+        wz_adUsername = userQuery('Enter the Active Directory user to use for directory lookups: ')
+        wz_adPassword = getpass.getpass(prompt="Enter the AD User's password: ")
+        wz_adAddGroup = userQuery('Enter the name of an Active Directory Group to make Admins on the Log Insight Server: ')
+    wz_ntp_raw = userQuery('Enter an NTP Server to use: ')
+    wz_ntp = []
+    wz_ntp.append(wz_ntp_raw)
+    wz_location = userQuery('Please enter the location/filename to save this configuration as: ')
+
+    # Time to put it in a list and make it all JSON
     wz_data = {}
     wz_data['fqdn'] = wz_fqdn
     wz_data['version'] = ''
@@ -229,7 +206,7 @@ def jsonWizard():
         print('\nYour JSON file has been saved to ' + wz_location + '\n')
     except:
         print('Unable to save file')
-# ---- Wizard Ends ----
+
 
 # Print documentation if requested
 if args.doc:
