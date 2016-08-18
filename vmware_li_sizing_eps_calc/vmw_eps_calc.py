@@ -8,10 +8,13 @@ REQUIRED scp to be installed if you connect to remote hosts. Install it with
 This script will automatically add host keys to your known host list which can potentially be a security risk
 
 Currently supports VMware Cloud Director (vcd)
-Future support of VMware vSphere5 and vSphere6
 
-Future support for inspecting multiple files for a broader sample
+Author: Caleb Stephenson - cstephenson@vmware.com / calebs71@gmail.com
+Date: 2-12-16
+
+This code is not supported, released or related to VMware in any way and comes with absolutely no guarentees.
 '''
+
 import re
 import datetime
 import os
@@ -27,37 +30,30 @@ from scp import SCPClient
 global tmp_dir
 global default_vcd_info
 global default_vcd_debug
-global default_vshpere5_info
-global default_vshpere5_debug
-global default_vsphere6_info
-global default_vsphere6_debug
+
 
 tmp_dir = '/tmp/vmw_eps_calc'
 default_vcd_info = '/opt/vmware/vcloud-director/logs/vcloud-container-info.log.1'
 default_vcd_debug = '/opt/vmware/vcloud-director/logs/vcloud-container-debug.log.1'
-default_vshpere5_info = ''
-default_vshpere5_debug = ''
-default_vsphere6_info = ''
-default_vsphere6_debug = ''
+
 
 def main():
     atexit.register(clean_up)
     # Parse command line arguments to fine device class and specific log if requested
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--device', required=True, action='store', help='The type of VMware device (vcd, vsphere5, vsphere6)')
     parser.add_argument('-l', '--log', required=False, action='store', help='Specific single log file to inspect')
     parser.add_argument('-r', '--host', required=False, action='store', help='Remote host to connect to over SSH. Localhost is implied if not used')
     parser.add_argument('-u', '--user', required=False, action='store', help='SSH user for remote hosts. Not required unless you specified a remote host')
     parser.add_argument('-p', '--password', required=False, action='store', help='SSH password for scripting. Recommened that you IGNORE and will be securely prompted instead')
     #parser.add_argument('-r', '--recursive', required=False, action='store', help='Set to number of older log files you want to parse older copies and not just the last full log')
     args = parser.parse_args()
-    col_type = str(args.device)
+    col_type = 'vcd'
     col_log = str(args.log)
     col_host = str(args.host)
     col_user = str(args.user)
     col_pass = str(args.password)
   
-    print ('\n          ---- Events Per Second (EPS) Calculator for VMware Products ---- \n')
+    print ('\n    ---- Events Per Second (EPS) Calculator for VMware vCloud Director ---- \n')
     
     # Operations for collecting from a remote host
     if col_host != 'None':
@@ -94,12 +90,6 @@ def scp_connect(server, username, password, col_log, col_type):
     if col_log == 'None' and col_type == 'vcd':
         col_log = default_vcd_debug
         col_log_info = default_vcd_info
-    if col_log == 'None' and col_type == 'vsphere5':
-        col_log = default_vshpere5_debug
-        col_log_info = default_vshpere5_info
-    if col_log == 'None' and col_type == 'vsphere6':
-        col_log = default_vsphere6_debug
-        col_log_info = default_vsphere6_info
 
     # Create local directory to hold log files
     try:
@@ -112,7 +102,7 @@ def scp_connect(server, username, password, col_log, col_type):
     print ('Connected to remote host\n')
     file_path = '/tmp/vmw_eps_calc/'
     try:
-        print ('Attempting to copy ' + col_log + ' to localhost. This can take a a bit depending on your connection....\n')
+        print ('Attempting to copy DEBUG logs to your machine. This (~11M) can take a a bit depending on your connection....\n')
         scp.get(col_log, file_path)
         # Pass file location to file_list() after parsing it a bit to extract the actual file name
         file_name_index = col_log.rfind('/')
@@ -123,7 +113,7 @@ def scp_connect(server, username, password, col_log, col_type):
     except:
         print ('Error retrieving log file ' + col_log)
     try:
-        print ('Attempting to copy ' + col_log_info + ' to localhost. This can take a a bit depending on your connection....\n')
+        print ('Now doing the info level logs...\n')
         scp.get(col_log_info, file_path)
         # Pass file location to file_list() after parsing it a bit to extract the actual file name
         file_name_index = col_log_info.rfind('/')
@@ -159,26 +149,6 @@ def file_list(file_location, device_type):
                 # Pass file to parser
                 parse_ts_yr_sec1(default_vcd_info, file_size_kb)
                 parse_ts_yr_sec1(default_vcd_debug, file_size_kb)
-        if device_type == 'vsphere5':
-            print ('Grabbing last full logs for vsphere5 in local default location\n')
-            try:
-                file_size_kb = int((os.path.getsize(default_vshpere5_info) / 1024))
-                file_size_kb = int((os.path.getsize(default_vshpere5_debug) / 1024))
-            except:
-                print ('File does not exist or is empty')
-            if file_size_kb:
-                # Pass file to parser
-                parse_ts_yr_sec1(default_vshpere5_info, file_size_kb)
-                parse_ts_yr_sec1(default_vshpere5_debug, file_size_kb)
-        if device_type == 'vsphere6':
-            print ('Grabbing last full logs for vsphere6 in local default location\n')
-            try:
-                file_size_kb = int((os.path.getsize(default_vsphere6_debug) / 1024))
-            except:
-                print ('File does not exist or is empty')
-            if file_size_kb:
-                # Pass file to parser
-                parse_ts_yr_sec1(default_vsphere6_debug, file_size_kb)
 
 
 def parse_ts_yr_sec1(file_location, file_size_kb):
