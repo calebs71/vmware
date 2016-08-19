@@ -39,7 +39,7 @@ JSON file.
 # Forwarder destination
   "forward_fqdn":"master-li-cluster.domain.com",
   "forward_protocol":"cfapi",
-  "forward_tags":{"tenant":"onecloud","environment":"production"},
+  "forward_tags":{"tenant":"mycloud","environment":"production"},
   "forward_sslEnabled":"false",
   "forward_port":9000,
   "forward_diskCacheSize":2097152000,
