@@ -59,9 +59,21 @@ JSON file.
 # Active Directory group to grant admin privileges on Log Insight
   "ac_ad_group":"global_li_admins",
 # Leave this alone unless you are absolutely positive you know what you are doing. Even then, you probably shouldn't :)
-  "ac_role_uuid":"00000000-0000-0000-0000-000000000001"
+  "ac_role_uuid":"00000000-0000-0000-0000-000000000001",
 # NTP Servers to use
-  "ntp_servers":["time.vmware.com", "0.vmware.pool.ntp.org", "1.vmware.pool.ntp.org"]
+  "ntp_servers":["time.vmware.com", "0.vmware.pool.ntp.org", "1.vmware.pool.ntp.org"],
+# List of Agent Groups
+  "agent_groups":["Linux", "Windows", "vSphere 6.x - vCenter (Linux) Essential", "Microsoft - SQL Server"],
+# Each defined Agent Group needs a config
+  "agent_group_Linux":{ "name": "Linux", "criteria": "not (os=~\"*Windows*\")", "agentConfig": "[filelog|auth]\ndirectory=/var/log\ninclude=auth.log;auth.log.?\nparser=syslog_parser\n\n[filelog|messages]\ndirectory=/var/log\ninclude=messages;messages.?\nparser=syslog_parser\n\n[filelog|syslog]\ndirectory=/var/log\ninclude=syslog;syslog.?\nparser=syslog_parser\n\n[parser|syslog_parser]\nbase_parser=clf\nformat=%t %i %{appname}i: %M\nfield_decoder={\"appname\":\"syslog_appname_parser\"}\nexclude_fields=log_message\n\n[parser|syslog_appname_parser]\nbase_parser=clf\nformat=%{appname}i[%{thread_id}i]\n\n[filelog|secure]\ndirectory=/var/log\ninclude=secure*\n\n[filelog|audit]\ndirectory=/var/log/audit\ninclude=audit*", "info": "Generic Linux agent group to collect events from standard log locations."},
+# and one for Windows
+  "agent_group_Microsoft - Windows":{ "name":"Microsoft - Windows","criteria":"os=~\"*Windows*\"","agentConfig":"[winlog|Application]\nchannel=Application\n\n[winlog|Security]\nchannel=Security\n\n[winlog|System]\nchannel=System\n\n[winlog|WindowsFirewall]\nchannel=Microsoft-Windows-Windows Firewall With Advanced Security/Firewall\n\n[winlog|UAC]\nchannel=Microsoft-Windows-UAC/Operational\n","info":"This is the agent group configuration for Microsoft - Windows content pack.\nYou can find this under Administration -> Management -> Agents -> All Agents drop down.\nTo apply,copy this template to active groups , add filters and save.\n " },
+# and one for vCD
+  "agent_group_vCloud Director Cell Servers":{"name":"vCloud Director Cell Servers","criteria":"(hostname=~\"*vcd*\") and (not (os=~\"*Windows*\"))","agentConfig":"[filelog|vcd-essential]\ndirectory=/opt/vmware/vcloud-director/logs\n;include=vcloud-container-info*;upgrade*;vmware-vcd-support*;watchdog*\n; -- Comment out the above include and use the below line INSTEAD to collect debug level logs --\n;                                ------- WARNING -------\n;        Enabling debug logs will cause an exponential growth in your log ingestion  that can\n;        cause your logs to roll faster than expected as well as other possible issues.\n;        Only enable this if you know what you are doing and are ready for the additional load!\ninclude=vcloud-container-debug*;upgrade*;vmware-vcd-support*;watchdog*\nevent_marker=\\d{4}-\\d{2}-\\d{2}\n","info":"This Agent Group contains the necessary log file configuration to collect from VMware vCloud Director Servers using the Log Insight Agent for Linux. Log Insight Agent use is highly recommended!<br>" },
+# and one for vCSA
+  "agent_group_vSphere 6.x - vCenter (Linux) Essential": {"name":"vSphere 6.x - vCenter (Linux) Essential","criteria":"(((hostname=~\"*vc*\") or (hostname=~\"*psc*\")) or (hostname=~\"*sso*\")) and (os=~\"*Suse*\")","agentConfig":"[filelog|vsphere6-linux-applmgmt]\ndirectory=/var/log/vmware/applmgmt\ninclude=*.log*;*.txt*\nevent_marker=^\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-linux-sso]\ndirectory=/var/log/vmware/sso\ninclude=*.log*;*.txt*\nexclude=vmware-identity-sts.log*;vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-linux-sso-sts]\ndirectory=/var/log/vmware/sso\ninclude=vmware-identity-sts.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-linux-sts-parser\nexclude_fields=date;time;log_message\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-linux-sso-idmd]\ndirectory=/var/log/vmware/sso\ninclude=vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-linux-idmd-parser\nexclude_fields=date;time;log_message\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-linux-vpxd]\ndirectory=/var/log/vmware/vpxd\ninclude=*.log*;*.txt*\nevent_marker=^\\d\nparser=vsphere6-linux-vpxd-parser\nexclude_fields=date;time;log_message\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-linux-vsphere-client]\ndirectory=/var/log/vmware/vsphere-client\ninclude=*.log*;*.txt*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-linux-vsphere-client-logs]\ndirectory=/var/log/vmware/vsphere-client/logs\ninclude=*.log*;*.txt*\nexclude=vsphere_client_virgo.log*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-linux-vsphere-client-virgo-logs]\ndirectory=/var/log/vmware/vsphere-client/logs\ninclude=vsphere_client_virgo*.log*\nevent_marker=^\\[\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-linux-virgo-parser\nexclude_fields=date;time;log_message;num1;num2;num3\ntags={\"vmw_product\":\"vcenter\"}\n\n[parser|vsphere6-linux-sts-parser]\nbase_parser=clf\nformat=[%{date}i %{thread}i %{domain}i             %{session}i %{severity}i %{component}i] %M\n\n[parser|vsphere6-linux-idmd-parser]\nbase_parser=clf\nformat=[%{date}i %{domain}i             %{session}i %{severity}i] [%{component}i] %M\n\n[parser|vsphere6-linux-vpxd-parser]\nbase_parser=clf\nformat=%{date}i %{severity}i %{appname}i[%{procid}i] %M\n\n[parser|vsphere6-linux-virgo-parser]\nbase_parser=clf\nformat=[%{date}i] [%{severity}i] %{thread}i         %{component}i                      %M\nnext_parser=vsphere6-linux-virgo-parser2\n\n[parser|vsphere6-linux-virgo-parser2]\nbase_parser=clf\nformat=[%{date}i] [%{severity}i] %{thread}i         %{num1}i %{num2}i %{num3}i %{component}i                      %M","info":"<span>The group contains configuration for only the essential VCSA log files including SSO. This configuration is recommended for most environments as it contains the most relevant logs at the lowest ingestion rate and also provides full functionality of the vSphere content pack.</span><br>"},
+# and 1 for Windows vCenters
+  "agent_group_vSphere 6.x - vCenter (Windows) Essential":{"name":"vSphere 6.x - vCenter (Windows) Essential","criteria":"((os=~\"*windows*\") and (((hostname=~\"*sso*\") or (hostname=~\"*vc*\")) or (hostname=~\"*psc*\"))) and (not (hostname=~\"*sql*\"))","agentConfig":"[filelog|vsphere6-windows-sso]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\sso\\\ninclude=*.log*;*.txt*\nexclude=VMwareIdentityMgmtService.*.log*;vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-windows-sso-idmd]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\sso\\\ninclude=vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-windows-idmd-parser\nexclude_fields=log_message\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-windows-vpxd]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\vmware-vpx\ninclude=*.log*;*.txt*\nevent_marker=^\\d\nparser=vsphere6-windows-vpxd-parser\nexclude_fields=log_message\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-windows-vsphere-client]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\vsphere-client\ninclude=*.log*;*.txt*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-windows-vsphere-client-logs]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\vsphere-client\\logs\ninclude=*.log*;*.txt*\nexclude=vsphere_client_virgo*.log*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-windows-vsphere-client-virgo-logs]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\vsphere-client\\logs\ninclude=vsphere_client_virgo*.log*\nevent_marker=^\\[\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-windows-virgo-parser\nexclude_fields=log_message;num1;num2;num3\ntags={\"vmw_product\":\"vcenter\"}\n\n[parser|vsphere6-windows-sts-parser]\nbase_parser=clf\nformat=[%t %{thread}i %{domain}i             %{session}i %{severity}i %{component}i] %M\n\n[parser|vsphere6-windows-idmd-parser]\nbase_parser=clf\nformat=[%t %{domain}i             %{session}i %{severity}i] [%{component}i] %M\n\n[parser|vsphere6-windows-vpxd-parser]\nbase_parser=clf\nformat=%t %{severity}i %{appname}i[%{procid}i] %M\n\n[parser|vsphere6-windows-virgo-parser]\nbase_parser=clf\nformat=[%t] [%{severity}i] %{thread}i         %{component}i                      %M\nnext_parser=vsphere6-windows-virgo-parser2\n\n[parser|vsphere6-windows-virgo-parser2]\nbase_parser=clf\nformat=[%t] [%{severity}i] %{thread}i         %{num1}i %{num2}i %{num3}i %{component}i                      %M\n","info":"<span>The group contains configuration for only the essential vCenter Server log files including SSO. This configuration is recommended for most environments as it contains the most relevant logs at the lowest ingestion rate and also provides full functionality of the vSphere content pack.</span><br>"}
 }
 -------------------------------------
 
@@ -77,6 +89,7 @@ Date: 3-24-16
 This code is not supported, released or related to VMware in any way and comes with absolutely no guarentees.
 '''
 
+import hashlib
 import sys
 import requests
 import json
@@ -276,6 +289,8 @@ def main():
     getReqContentPacks(authHeadersJson)
     # Check for the existance of a SINGLE Active Directory group and it's association with a SINGLE Log Insight role
     getAccessControls(authHeadersJson)
+    # Check for Agent Groups
+    getAgentGroups(authHeadersJson)
     print('All checks have completed successfully\n')
 
 # Should define function for error message and remediation to reduce code
@@ -465,6 +480,7 @@ def getForwarder(authHeadersJson):
                 if str(forwarderDetails['id']).lower() == str(configData['forward_name']).lower():
                     # If the simple check passes then do a through check to see if we need to update the record
                     #print('Forwarder ' + str(forwarderDetails['id']) + ' configuration exists, requires deeper inspection...')
+                    #print('Comparing: ' + str(forwarderDetails['filter']).lower() + '\nWith\n' + str(configData['forward_filter']).lower())
                     if str(forwarderDetails['protocol']).lower() == str(configData['forward_protocol']).lower() and \
                        str(forwarderDetails['tags']).lower() == str(configData['forward_tags']).lower() and \
                        str(forwarderDetails['sslEnabled']).lower() == str(configData['forward_sslEnabled']).lower() and \
@@ -524,12 +540,19 @@ def updateForwarder(authHeadersJson):
                 '"workerCount":' + str(configData['forward_workerCount']) + ',' + \
                 '"filter":"' + str(configData['forward_filter']).replace('"','\\"') + '"' + \
                 '}'
-    configForwarder = requests.put(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    print(buildJson)
+    print(str(forwarderUrl))
+    try:
+        configForwarder = requests.put(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+    except Exception,e:
+        print(e)
+    
     if configForwarder.status_code >= 400:
         print('-!!ERROR!! - Unable to remediate Forwarder Configuration - See error details below ')
         print(' - Status Code: ' + str(configForwarder.status_code))
         print(' - Error Details: ' + str(configForwarder.text))
     else:
+        print(str(configForwarder.status_code))
         time.sleep(3)
         getForwarder(authHeadersJson)
 
@@ -838,6 +861,160 @@ def setNtp(authHeadersJson):
     else:
         time.sleep(3)
         getNtp(authHeadersJson)
+
+
+def getAgentGroups(authHeadersJson):
+    try:
+        agtGrpUrl = str(baseUrl) + '/api/v1/agent/groups'
+        inAgtGrp = requests.get(str(agtGrpUrl), headers = authHeadersJson, verify = False).json()
+        agtGroups = (inAgtGrp["groups"])
+        desiredAgtGroups = configData['agent_groups']
+        for desiredAgtGroup in desiredAgtGroups:
+            desiredAgtGroupJSON = 'agent_group_' + desiredAgtGroup
+            #Define a list of what we want for comparision as well as remediation
+            try:
+                desiredAgtGroupDetails = configData[desiredAgtGroupJSON]
+                desiredAgtGroupName =  desiredAgtGroupDetails['name']
+                desiredAgtGroupInfo = desiredAgtGroupDetails['info']
+                desiredAgtGroupCriteria = desiredAgtGroupDetails['criteria']
+                desiredAgtGroupAgentConfig = desiredAgtGroupDetails['agentConfig']
+                agtGroupsLen = len(agtGroups)
+                for agtGroup in agtGroups:
+                    if str(desiredAgtGroup).lower() != str(agtGroup['name']).lower():
+                        agtGroupsLen = agtGroupsLen - 1
+                    else:
+                        agtGroupDetailName = str(agtGroup['name'])
+                        agtGroupDetailAgentConfig = str(agtGroup['agentConfig'])
+                        agtGroupDetailCriteria = str(agtGroup['criteria'])
+                        agtGroupDetailInfo = str(agtGroup['info'])
+                if agtGroupsLen < 1:
+                    print('-!!WARN!!- Agent Group' + str(desiredAgtGroup) + ' DOES NOT exist ')
+                    # Send it off for remediation
+                    if remediateFlag > 0:
+                        desiredAgtGroupBuildJson = buildAgentGroupJson(desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig)
+                        createAgentGroup(authHeadersJson, desiredAgtGroupBuildJson)
+                else:
+                    print(str(desiredAgtGroup) + ' - Agent group found')
+                    # Send it off for further configuration inspection using the name as the key
+                    try:
+                        result = compareAgentGroups(agtGroupDetailName, agtGroupDetailInfo, agtGroupDetailCriteria, agtGroupDetailAgentConfig, desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig)
+                        # Returned result codes:
+                        #  0 = Ok - Comparision Matched - No further action required
+                        #  1 = Failed - Comparision Erred out - Something went wrong
+                        #  2 = Mismatch - Comparision Completed with a non-match - Remediation required
+                        #print(result)
+                        if result == 0:
+                            print('  %s Agent Group matches desired state') %  desiredAgtGroupName
+                        elif result == 2:
+                            # Does not match gold master - remediation required
+                            print('  -!!WARN!!- %s Agent Group exists but DOES NOT match desired state') % desiredAgtGroupName
+                            if remediateFlag > 0:
+                                desiredAgtGroupBuildJson = buildAgentGroupJson(desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig)
+                                updateResult = updateAgentGroup(authHeadersJson, desiredAgtGroupBuildJson, desiredAgtGroupName)
+                        else:
+                            # Generic error is compareAgentGroups()
+                            print('  Something went wrong comparing %s' % desiredAgtGroupName)
+                    except:
+                        print('  Something went wrong attempting to compare %s' % desiredAgtGroupName)
+            except:
+                print('-!!ERROR!!-The detailed configuration information for %s is missing from your json file' % desiredAgtGroupJSON)
+    except:
+        print('Something went wrong')
+
+
+def compareAgentGroups(agtGroupDetailName, agtGroupDetailInfo, agtGroupDetailCriteria, agtGroupDetailAgentConfig, desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig):
+    print('  Inspecting %s Agent Group' % agtGroupDetailName)
+    # Whitespace and header/footer newlines are a pain, stipping them out....
+    desiredAgtGroupCriteria = desiredAgtGroupCriteria.strip()
+    desiredAgtGroupAgentConfig = desiredAgtGroupAgentConfig.strip()
+    # Returned results come back with escaped backslashes that we need to remove to compare with the template
+    agtGroupDetailCriteria = agtGroupDetailCriteria.replace('\\\\','\\').strip()
+    agtGroupDetailAgentConfig = agtGroupDetailAgentConfig.replace('\\\\','\\').strip()
+
+    # Useful for debugging what doesn't match....
+    #print('\n\nComparing:\n' + str(desiredAgtGroupName).lower() + '\nDesiredHash: ' + str(getMd5Hash(str(desiredAgtGroupName))) + '\nActualHash:  ' + str(getMd5Hash(str(agtGroupDetailName))) + '\nWith:\n' + str(agtGroupDetailName).lower())
+    #print('\n\nComparing:\n' + str(desiredAgtGroupCriteria).lower() + '\nDesiredHash: ' + str(getMd5Hash(str(desiredAgtGroupCriteria))) + '\nActualHash:  ' + str(getMd5Hash(str(agtGroupDetailCriteria))) + '\nWith:\n' + str(agtGroupDetailCriteria).lower())
+    #print('\n\nComparing:\n' + str(desiredAgtGroupAgentConfig).lower() + '\nDesiredHash: ' + str(getMd5Hash(str(desiredAgtGroupAgentConfig))) + '\nActualHash:  ' + str(getMd5Hash(str(agtGroupDetailAgentConfig))) + '\nWith:\n' + str(agtGroupDetailAgentConfig).lower())
+
+    try:
+        if str(desiredAgtGroupName).lower() == str(agtGroupDetailName).lower() and \
+        str(desiredAgtGroupCriteria).lower() == str(agtGroupDetailCriteria).lower() and \
+        str(desiredAgtGroupAgentConfig).lower() == str(agtGroupDetailAgentConfig).lower():
+            return 0
+        else:
+            return 2
+    except Exception, e:
+        print (e)
+
+
+def getMd5Hash(parmIN):
+    m = hashlib.md5()
+    m.update(parmIN)
+    md5Result = m.hexdigest()
+    return md5Result
+
+
+def buildAgentGroupJson(desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig):
+    # Makes newline characters and double quotes JSON safe
+    buildJson = '{' + \
+                '"name":"' + str(desiredAgtGroupName) + '",' + \
+                '"criteria":"' + str(desiredAgtGroupCriteria).replace('"','\\"') + '",' + \
+                '"agentConfig":"' + str(desiredAgtGroupAgentConfig).replace('"','\\"') \
+                    .replace('\n','\\n') \
+                    .replace('\\d','\\\\d') \
+                    .replace('\\[','\\\\[') \
+                    .replace('\\]','\\\\]') \
+                    .replace('\\','\\\\') \
+                    .replace('\\\\"','\\"') \
+                    .replace('\\\\n','\\n') + '",' + \
+                '"info":"' + str(desiredAgtGroupInfo).replace('"','\\"').replace('\n','\\n') + '"' +\
+                '}'
+    return str(buildJson)
+
+
+def updateAgentGroup(authHeadersJson, desiredAgtGroupBuildJson, desiredAgtGroupName ):
+    # Was seeing inconsistent results so deleting and recreating for now....
+    #agtGrpUrl = str(baseUrl) + '/api/v1/agent/groups/' + str(desiredAgtGroupName).replace(' ','%20')
+    #try:
+    #    print(agtGrpUrl)
+    #    configAgtGrp =  requests.delete(str(agtGrpUrl), headers = authHeadersJson, verify = False)
+    #    time.sleep(3)
+    #except Exception, e:
+    #    print(str(e))
+
+    print('  Executing Agent Group update remediation')
+    # Have to make the URL safe for spaces, might be others that I haven't found yet....
+    agtGrpUrl = str(baseUrl) + '/api/v1/agent/groups/' + str(desiredAgtGroupName).replace(' ','%20')
+    #print (agtGrpUrl)
+    #print(str(desiredAgtGroupBuildJson))
+
+    try:
+        configAgtGrp =  requests.put(str(agtGrpUrl), headers = authHeadersJson, verify = False, data = str(desiredAgtGroupBuildJson))
+    except Exception, e:
+        print(str(e))
+    if configAgtGrp.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate Agent Group Configuration - See error details below ')
+        print(' - Status Code: ' + str(configAgtGrp.status_code))
+        print(' - Error Details: ' + str(configAgtGrp.text))
+    else:
+        time.sleep(3)
+
+
+def createAgentGroup(authHeadersJson, desiredAgtGroupBuildJson):
+    print('  Executing Agent Group creation remediation')
+    agtGrpUrl = str(baseUrl) + '/api/v1/agent/groups'
+    #print(str(desiredAgtGroupBuildJson))
+
+    try:
+        configAgtGrp =  requests.post(str(agtGrpUrl), headers = authHeadersJson, verify = False, data = str(desiredAgtGroupBuildJson))
+    except Exception, e:
+        print(str(e))
+    if configAgtGrp.status_code >= 400:
+        print('-!!ERROR!! - Unable to remediate Agent Group Configuration - See error details below ')
+        print(' - Status Code: ' + str(configAgtGrp.status_code))
+        print(' - Error Details: ' + str(configAgtGrp.text))
+    else:
+        time.sleep(3)
 
 
 if __name__ == '__main__':
