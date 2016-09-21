@@ -304,7 +304,7 @@ def connectToServer():
     else:
         print('ERROR - Needed information is missing! Please check your username, password and auth_provider')
         sys.exit()
-    
+
     authUrl = str(baseUrl) + '/api/v1/sessions'
     buildJson = '{' + \
                  '"provider":"' + configData['auth_provider'] + '",' + \
@@ -329,13 +329,13 @@ def getVersion(authHeadersJson):
     if len(configData['version']) == 0:
         print('Desired version NOT specified in JSON template - Skipping Test')
         return
-    
+
     try:
         versionUrl = str(baseUrl) + '/api/v1/version'
         version = requests.get(str(versionUrl), headers = authHeadersJson, verify = False).json()
         liReleaseName = str(version['releaseName'])
         liVersion = str(version['version'])
-    
+
         print('Log Insight Server at ' + str(configData['fqdn']) + ' running version ' + liVersion + ' ' + liReleaseName + '\n')
 
         if str(liVersion).lower() == str(configData['version']).lower():
@@ -344,7 +344,7 @@ def getVersion(authHeadersJson):
             print('-!!WARN!! - Version DOES NOT match desired state. No Automatic remediation available')
     except:
         print('-!!ERROR!! - Unable to get Log Insight version')
-        
+
     # Build in some logic to allow at 3.3+ only since the APIs don't exist earlier
     majorRelease = liVersion.split('.')[0]
     minorRelease = liVersion.split('.')[1]
@@ -357,7 +357,7 @@ def getLicense(authHeadersJson):
     if len(configData['license']) == 0:
         print('Desired license NOT specified in JSON template - Skipping Test')
         return
-    
+
     try:
         licenseUrl = str(baseUrl) + '/api/v1/licenses'
         license = requests.get(str(licenseUrl), headers = authHeadersJson, verify = False)
@@ -377,7 +377,7 @@ def setLicense(authHeadersJson):
     if len(configData['license']) == 0:
         print('Desired license NOT specified in JSON template - Skipping Remediation')
         return
-    
+
     print('Executing license remediation')
     licenseUrl = str(baseUrl) + '/api/v1/licenses'
     buildJson = '{' + \
@@ -402,7 +402,7 @@ def getEmail(authHeadersJson):
        len(configData['email_tls']) == 0:
         print('Desired email configuration NOT specified in JSON template - Skipping Test')
         return
-    
+
     try:
         notificationUrl = str(baseUrl) + '/api/v1/notifications'
         notification = requests.get(str(notificationUrl), headers = authHeadersJson, verify=False).json()
@@ -431,7 +431,7 @@ def setEmail(authHeadersJson):
        len(configData['email_tls']) == 0:
         print('Desired email configuration NOT specified in JSON template - Skipping Remediation')
         return
-    
+
     print('Executing email remediation')
     notificationUrl = str(baseUrl) + '/api/v1/notifications'
     buildJson = '{' + \
@@ -467,7 +467,7 @@ def getForwarder(authHeadersJson):
        configData['forward_workerCount'] is None:
         print('Desired Forwader configuration NOT specified in JSON template - Skipping Test')
         return
-    
+
     try:
         forwarderUrl = str(baseUrl) + '/api/v1/forwarding'
         forwarder = requests.get(str(forwarderUrl), headers = authHeadersJson, verify = False).json()
@@ -524,10 +524,10 @@ def updateForwarder(authHeadersJson):
        configData['forward_workerCount'] is None:
         print('Desired Forwader configuration NOT specified in JSON template - Skipping Remediation')
         return
-    
+
     print('Executing forwarder remediation - updating existing')
     forwarderUrl = str(baseUrl) + '/api/v1/forwarding'
-    
+
     #Odd looking replace statement below is required to comment out double quotes in extended syntax and remove the u for unicode.
     buildJson = '{' + \
                 '"id":"' + configData['forward_name'] + '",' + \
@@ -544,9 +544,9 @@ def updateForwarder(authHeadersJson):
     print(str(forwarderUrl))
     try:
         configForwarder = requests.put(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-    except Exception,e:
-        print(e)
-    
+    except Exception as e:
+        print(str(e))
+
     if configForwarder.status_code >= 400:
         print('-!!ERROR!! - Unable to remediate Forwarder Configuration - See error details below ')
         print(' - Status Code: ' + str(configForwarder.status_code))
@@ -569,10 +569,10 @@ def setForwarder(authHeadersJson):
        configData['forward_workerCount'] is None:
         print('Desired Forwader configuration NOT specified in JSON template - Skipping Remediation')
         return
-    
+
     print('Executing forwarder remediation - creating new')
     forwarderUrl = str(baseUrl) + '/api/v1/forwarding'
-    
+
     #Odd looking replace statement below is required to comment out double quotes in extended syntax and remove the u for unicode.
     buildJson = '{' + \
                 '"id":"' + configData['forward_name'] + '",' + \
@@ -605,7 +605,7 @@ def getAd(authHeadersJson):
        configData['ad_port'] is None:
         print('Desired Active Directory configuration NOT specified in JSON template - Skipping Test')
         return
-    
+
     try:
         # This operates under the asssumption that you WANT AD and don't intend to disable it via API.....
         adUrl = str(baseUrl) + '/api/v1/ad/config'
@@ -647,7 +647,7 @@ def setAd(authHeadersJson):
        configData['ad_port'] is None:
         print('Desired Active Directory configuration NOT specified in JSON template - Skipping Remediation')
         return
-    
+
     print('Executing AD authentication remediation')
     adUrl = str(baseUrl) + '/api/v1/ad/config'
     buildJson = '{' + \
@@ -674,12 +674,12 @@ def getReqContentPacks(authHeadersJson):
     if len(configData['content_packs']) == 0:
         print('Desired Content Packs configuration NOT specified in JSON template - Skipping Test')
         return
-    
+
     try:
         contentPacksUrl = str(baseUrl) + '/api/v1/contentpacks'
         inContentPacks = requests.get(str(contentPacksUrl), headers = authHeadersJson, verify = False).json()
         inContentPacks =  inContentPacks['contentPackMetadataList']
-        
+
         for reqContentPack in configData['content_packs']:
             reqContentPackVer = configData['content_packs'][str(reqContentPack)]
             inContentPackLen = len(inContentPacks)
@@ -723,13 +723,13 @@ def getAccessControls(authHeadersJson):
        len(configData['ac_role_uuid']) == 0:
         print('Desired Active Directory configuration NOT specified in JSON template - Skipping Test')
         return
-    
+
     try:
         accessControlsUrl = str(baseUrl) + '/api/v1/adgroups'
         inAccessControls = requests.get(str(accessControlsUrl), headers = authHeadersJson, verify = False).json()
         inAccessControls = inAccessControls['adGroups']
         inAccessControlsLen = len(inAccessControls)
-        
+
         for accessControl in inAccessControls:
             #print(str(accessControl['name']))
             if str(accessControl['name'].lower()) == configData['ac_ad_group'].lower():
@@ -775,7 +775,7 @@ def addAccessControl(authHeadersJson):
        len(configData['ac_role_uuid']) == 0:
         print('Desired Active Directory configuration NOT specified in JSON template - Skipping Test')
         return
-    
+
     # Technical debt, only single group supported
     print('Executing Access Contorl Group addition remediation')
     accessControlsUrl = str(baseUrl) + '/api/v1/adgroups'
@@ -796,7 +796,7 @@ def editAccessControl(authHeadersJson):
        len(configData['ac_role_uuid']) == 0:
         print('Desired Active Directory configuration NOT specified in JSON template - Skipping Test')
         return
-    
+
     print('Executing Access Contorl Group modification remediation')
     accessControlsUrl = str(baseUrl) + '/api/v1/adgroups/ad/' + str(configData['ad_domain']) + '/' + str(configData['ac_ad_group'])
     buildJson = buildAccessControlJson()
@@ -816,7 +816,7 @@ def getNtp(authHeadersJson):
     if len(configData['ntp_servers']) == 0:
         print('Desired NTP configuration NOT specified in JSON template - Skipping Test')
         return
-    
+
     try:
         ntpUrl = str(baseUrl) + '/api/v1/time/config'
         inNtp = requests.get(str(ntpUrl), headers = authHeadersJson, verify = False).json()
@@ -844,7 +844,7 @@ def setNtp(authHeadersJson):
     if len(configData['ntp_servers']) == 0:
         print('Desired NTP configuration NOT specified in JSON template - Skipping Remediation')
         return
-    
+
     #Have list of NTP Servers that need iterated through
     #Potential Technical debt, not allowing ESXi host sync since it's not recommended anyway
     print('Executing NTP remediation')
@@ -888,7 +888,7 @@ def getAgentGroups(authHeadersJson):
                         agtGroupDetailCriteria = str(agtGroup['criteria'])
                         agtGroupDetailInfo = str(agtGroup['info'])
                 if agtGroupsLen < 1:
-                    print('-!!WARN!!- Agent Group' + str(desiredAgtGroup) + ' DOES NOT exist ')
+                    print('-!!WARN!!- Agent Group ' + str(desiredAgtGroup) + ' DOES NOT exist ')
                     # Send it off for remediation
                     if remediateFlag > 0:
                         desiredAgtGroupBuildJson = buildAgentGroupJson(desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig)
@@ -904,26 +904,26 @@ def getAgentGroups(authHeadersJson):
                         #  2 = Mismatch - Comparision Completed with a non-match - Remediation required
                         #print(result)
                         if result == 0:
-                            print('  %s Agent Group matches desired state') %  desiredAgtGroupName
+                            print('  %s Agent Group matches desired state' %  str(desiredAgtGroupName))
                         elif result == 2:
                             # Does not match gold master - remediation required
-                            print('  -!!WARN!!- %s Agent Group exists but DOES NOT match desired state') % desiredAgtGroupName
+                            print('  -!!WARN!!- %s Agent Group exists but DOES NOT match desired state' % desiredAgtGroupName)
                             if remediateFlag > 0:
                                 desiredAgtGroupBuildJson = buildAgentGroupJson(desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig)
                                 updateResult = updateAgentGroup(authHeadersJson, desiredAgtGroupBuildJson, desiredAgtGroupName)
                         else:
                             # Generic error is compareAgentGroups()
-                            print('  Something went wrong comparing %s' % desiredAgtGroupName)
+                            print('  Something went wrong comparing %s' % str(desiredAgtGroupName))
                     except:
-                        print('  Something went wrong attempting to compare %s' % desiredAgtGroupName)
+                        print('  Something went wrong attempting to compare %s' % str(desiredAgtGroupName))
             except:
-                print('-!!ERROR!!-The detailed configuration information for %s is missing from your json file' % desiredAgtGroupJSON)
+                print('-!!ERROR!!-The detailed configuration information for %s is missing from your json file' % str(desiredAgtGroupJSON))
     except:
         print('Something went wrong')
 
 
 def compareAgentGroups(agtGroupDetailName, agtGroupDetailInfo, agtGroupDetailCriteria, agtGroupDetailAgentConfig, desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig):
-    print('  Inspecting %s Agent Group' % agtGroupDetailName)
+    print('  Inspecting %s Agent Group' % str(agtGroupDetailName))
     # Whitespace and header/footer newlines are a pain, stipping them out....
     desiredAgtGroupCriteria = desiredAgtGroupCriteria.strip()
     desiredAgtGroupAgentConfig = desiredAgtGroupAgentConfig.strip()
@@ -943,8 +943,8 @@ def compareAgentGroups(agtGroupDetailName, agtGroupDetailInfo, agtGroupDetailCri
             return 0
         else:
             return 2
-    except Exception, e:
-        print (e)
+    except Exception as e:
+        print (str(e))
 
 
 def getMd5Hash(parmIN):
@@ -956,17 +956,11 @@ def getMd5Hash(parmIN):
 
 def buildAgentGroupJson(desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGroupCriteria, desiredAgtGroupAgentConfig):
     # Makes newline characters and double quotes JSON safe
+    #print str(desiredAgtGroupAgentConfig)
     buildJson = '{' + \
                 '"name":"' + str(desiredAgtGroupName) + '",' + \
-                '"criteria":"' + str(desiredAgtGroupCriteria).replace('"','\\"') + '",' + \
-                '"agentConfig":"' + str(desiredAgtGroupAgentConfig).replace('"','\\"') \
-                    .replace('\n','\\n') \
-                    .replace('\\d','\\\\d') \
-                    .replace('\\[','\\\\[') \
-                    .replace('\\]','\\\\]') \
-                    .replace('\\','\\\\') \
-                    .replace('\\\\"','\\"') \
-                    .replace('\\\\n','\\n') + '",' + \
+                '"criteria":"' + str(desiredAgtGroupCriteria).replace('"','\\"').replace('\n','\\n') + '",' + \
+                '"agentConfig":"' + str(desiredAgtGroupAgentConfig).replace('\\','\\\\').replace('\n','\\n').replace('"','\\"') + '",' + \
                 '"info":"' + str(desiredAgtGroupInfo).replace('"','\\"').replace('\n','\\n') + '"' +\
                 '}'
     return str(buildJson)
@@ -974,13 +968,6 @@ def buildAgentGroupJson(desiredAgtGroupName, desiredAgtGroupInfo, desiredAgtGrou
 
 def updateAgentGroup(authHeadersJson, desiredAgtGroupBuildJson, desiredAgtGroupName ):
     # Was seeing inconsistent results so deleting and recreating for now....
-    #agtGrpUrl = str(baseUrl) + '/api/v1/agent/groups/' + str(desiredAgtGroupName).replace(' ','%20')
-    #try:
-    #    print(agtGrpUrl)
-    #    configAgtGrp =  requests.delete(str(agtGrpUrl), headers = authHeadersJson, verify = False)
-    #    time.sleep(3)
-    #except Exception, e:
-    #    print(str(e))
 
     print('  Executing Agent Group update remediation')
     # Have to make the URL safe for spaces, might be others that I haven't found yet....
@@ -990,7 +977,7 @@ def updateAgentGroup(authHeadersJson, desiredAgtGroupBuildJson, desiredAgtGroupN
 
     try:
         configAgtGrp =  requests.put(str(agtGrpUrl), headers = authHeadersJson, verify = False, data = str(desiredAgtGroupBuildJson))
-    except Exception, e:
+    except Exception as e:
         print(str(e))
     if configAgtGrp.status_code >= 400:
         print('-!!ERROR!! - Unable to remediate Agent Group Configuration - See error details below ')
@@ -1007,7 +994,7 @@ def createAgentGroup(authHeadersJson, desiredAgtGroupBuildJson):
 
     try:
         configAgtGrp =  requests.post(str(agtGrpUrl), headers = authHeadersJson, verify = False, data = str(desiredAgtGroupBuildJson))
-    except Exception, e:
+    except Exception as e:
         print(str(e))
     if configAgtGrp.status_code >= 400:
         print('-!!ERROR!! - Unable to remediate Agent Group Configuration - See error details below ')
