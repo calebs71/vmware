@@ -381,6 +381,13 @@ def getVersion(authHeadersJson):
         sys.exit()
 
 
+def statusCodeError(taskDescription, statusCode, statusText):
+    # Generic error handler for HTTP errors
+    print('\n-!!ERROR!! - Unable to ' + str(taskDescription) + ' - See error details below')
+    print(' - Status Code: ' + str(statusCode))
+    print(' - Error Details: ' + str(statusText) + '\n')
+
+
 def buildInitialNode(unAuthHeaders):
     try:
         buildUrl = str(baseUrl) + ':9543/api/v1/deployment/new'
@@ -393,10 +400,8 @@ def buildInitialNode(unAuthHeaders):
         if 'This call isn\'t allowed after the LI server is bootstrapped' in str(build.text):
             print('This server is already bootstrapped, proceeding on....')
         else:
-            if build.status_code >= 400:
-                print('-!!ERROR!! - Unable to build initial node - See error details below ')
-                print(' - Status Code: ' + str(build.status_code))
-                print(' - Error Details: ' + str(build.text))
+            if build.status_code >= 400  or 'errorMessage' in str(build.text):
+                statusCodeError('build initial node', build.status_code, build.text)
             else:
                 # Wait for server to fully initialize before connecting to it
                 time.sleep(10)
@@ -413,10 +418,8 @@ def buildAdditionalNode(unAuthHeaders, node, authHeadersJson):
             print('Node: ' + str(node) + ' is already a member of a cluster, proceeding on....')
         else:
             print('Attempting to join server ' + str(node) + ' to cluster')
-            if build.status_code >= 400:
-                print('-!!ERROR!! - Unable to build additional node - See error details below ')
-                print(' - Status Code: ' + str(build.status_code))
-                print(' - Error Details: ' + str(build.text))
+            if build.status_code >= 400  or 'errorMessage' in str(build.text):
+                statusCodeError('build additional node', build.status_code, build.text)
             else:
                 rJSON = json.loads(str(build.text))
                 workerPort = rJSON['workerPort']
@@ -440,10 +443,8 @@ def authorizeNodes(authHeadersJson, workerAddress, workerPort, workerToken):
                     '"approved":"true"' + \
                     '}'
         build = requests.post(str(buildUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-        if build.status_code >= 400:
-            print('-!!ERROR!! - Unable to authorize node - See error details below ')
-            print(' - Status Code: ' + str(build.status_code))
-            print(' - Error Details: ' + str(build.text))
+        if build.status_code >= 400  or 'errorMessage' in str(build.text):
+            statusCodeError('authorize node', build.status_code, build.text)
         else:
             print('Node authorized!\n')
     except:
@@ -482,10 +483,8 @@ def setLicense(authHeadersJson):
                 '"key":"' + configData['license'] + '"' + \
                 '}'
     configLicense = requests.post(str(licenseUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-    if configLicense.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate License Configuration - See error details below ')
-        print(' - Status Code: ' + str(configLicense.status_code))
-        print(' - Error Details: ' + str(configLicense.text))
+    if configLicense.status_code >= 400  or 'errorMessage' in str(configLicense.text):
+        statusCodeError('license vRLI', configLicense.status_code, configLicense.text)
     else:
         time.sleep(3)
         getLicense(authHeadersJson)
@@ -543,10 +542,8 @@ def setEmail(authHeadersJson):
                 '"password":"' + configData['email_password'] + '"' + \
                 '}}]}'
     configEmail = requests.put(notificationUrl, headers = authHeadersJson, verify = False, data = str(buildJson))
-    if configEmail.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate Email Configuration - See error details below ')
-        print(' - Status Code: ' + str(configEmail.status_code))
-        print(' - Error Details: ' + str(configEmail.text))
+    if configEmail.status_code >= 400 or 'errorMessage' in str(configEmail.text):
+        statusCodeError('configure SMTP', configEmail.status_code, configEmail.text)
     else:
         time.sleep(3)
         getEmail(authHeadersJson)
@@ -644,10 +641,8 @@ def updateForwarder(authHeadersJson):
     except Exception as e:
         print(str(e))
 
-    if configForwarder.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate Forwarder Configuration - See error details below ')
-        print(' - Status Code: ' + str(configForwarder.status_code))
-        print(' - Error Details: ' + str(configForwarder.text))
+    if configForwarder.status_code >= 400 or 'errorMessage' in str(configForwarder.text):
+        statusCodeError('configure event forwarder', configForwarder.status_code, configForwarder.text)
     else:
         print(str(configForwarder.status_code))
         time.sleep(3)
@@ -683,10 +678,8 @@ def setForwarder(authHeadersJson):
                 '"filter":"' + str(configData['forward_filter']).replace('"','\\"') + '"' + \
                 '}'
     configForwarder = requests.post(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-    if configForwarder.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate Forwarder Configuration - See error details below ')
-        print(' - Status Code: ' + str(configForwarder.status_code))
-        print(' - Error Details: ' + str(configForwarder.text))
+    if configForwarder.status_code >= 400 or 'errorMessage' in str(configForwarder.text):
+        statusCodeError('configure event forwarder', configForwarder.status_code, configForwarder.text)
     else:
         time.sleep(3)
         getForwarder(authHeadersJson)
@@ -758,10 +751,8 @@ def setAd(authHeadersJson):
                 '"sslOnly":"' + configData['ad_sslOnly'] + '"' + \
                 '}'
     configAd = requests.post(str(adUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-    if configAd.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate AD Configuration - See error details below ')
-        print(' - Status Code: ' + str(configAd.status_code))
-        print(' - Error Details: ' + str(configAd.text))
+    if configAd.status_code >= 400 or 'errorMessage' in str(configAd.text):
+        statusCodeError('configure Active Directory', configAd.status_code, configAd.text)
     else:
         time.sleep(3)
         getAd(authHeadersJson)
@@ -867,10 +858,8 @@ def addAccessControl(authHeadersJson):
     accessControlsUrl = str(baseUrl) + '/api/v1/adgroups'
     buildJson = buildAccessControlJson()
     configAccessControl = requests.post(str(accessControlsUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-    if configAccessControl.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate Access Control Configuration - See error details below ')
-        print(' - Status Code: ' + str(configAccessControl.status_code))
-        print(' - Error Details: ' + str(configAccessControl.text))
+    if configAccessControl.status_code >= 400 or 'errorMessage' in str(configAccessControl.text):
+        statusCodeError('configure Role Based Access Controls', configAccessControl.status_code, configAccessControl.text)
     else:
         time.sleep(3)
         getAccessControls(authHeadersJson)
@@ -887,10 +876,8 @@ def editAccessControl(authHeadersJson):
     accessControlsUrl = str(baseUrl) + '/api/v1/adgroups/ad/' + str(configData['ad_domain']) + '/' + str(configData['ac_ad_group'])
     buildJson = buildAccessControlJson()
     configAccessControl = requests.post(str(accessControlsUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-    if configAccessControl.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate Access Control Configuration - See error details below ')
-        print(' - Status Code: ' + str(configAccessControl.status_code))
-        print(' - Error Details: ' + str(configAccessControl.text))
+    if configAccessControl.status_code >= 400 or 'errorMessage' in str(configAccessControl.text):
+        statusCodeError('configure Role Based Access Controls', configAccessControl.status_code, configAccessControl.text)
     else:
         time.sleep(3)
         getAccessControls(authHeadersJson)
@@ -938,10 +925,8 @@ def setNtp(authHeadersJson):
                 '"ntpServers":' + str(configData['ntp_servers']).replace("'",'"').replace('u"','"') + \
                 '}'
     configNtp =  requests.post(str(ntpUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
-    if configNtp.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate NTP Configuration - See error details below ')
-        print(' - Status Code: ' + str(configNtp.status_code))
-        print(' - Error Details: ' + str(configNtp.text))
+    if configNtp.status_code >= 400 or 'errorMessage' in str(configNtp.text):
+        statusCodeError('configure NTP', configNtp.status_code, configNtp.text)
     else:
         time.sleep(3)
         getNtp(authHeadersJson)
@@ -1060,10 +1045,8 @@ def updateAgentGroup(authHeadersJson, desiredAgtGroupBuildJson, desiredAgtGroupN
         configAgtGrp =  requests.put(str(agtGrpUrl), headers = authHeadersJson, verify = False, data = str(desiredAgtGroupBuildJson))
     except Exception as e:
         print(str(e))
-    if configAgtGrp.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate Agent Group Configuration - See error details below ')
-        print(' - Status Code: ' + str(configAgtGrp.status_code))
-        print(' - Error Details: ' + str(configAgtGrp.text))
+    if configAgtGrp.status_code >= 400 or 'errorMessage' in str(configAgtGrp.text):
+        statusCodeError('configure Agent Groups', configAgtGrp.status_code, configAgtGrp.text)
     else:
         time.sleep(3)
 
@@ -1075,10 +1058,8 @@ def createAgentGroup(authHeadersJson, desiredAgtGroupBuildJson):
         configAgtGrp =  requests.post(str(agtGrpUrl), headers = authHeadersJson, verify = False, data = str(desiredAgtGroupBuildJson))
     except Exception as e:
         print(str(e))
-    if configAgtGrp.status_code >= 400:
-        print('-!!ERROR!! - Unable to remediate Agent Group Configuration - See error details below ')
-        print(' - Status Code: ' + str(configAgtGrp.status_code))
-        print(' - Error Details: ' + str(configAgtGrp.text))
+    if configAgtGrp.status_code >= 400 or 'errorMessage' in str(configAgtGrp.text):
+        statusCodeError('configure Agent Groups', configAgtGrp.status_code, configAgtGrp.text)
     else:
         time.sleep(3)
 
