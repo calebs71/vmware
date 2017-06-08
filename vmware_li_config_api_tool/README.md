@@ -6,7 +6,7 @@ This Python code helps manage VMware's vRealize Log Insight (vRLI) by referencin
 3. Configure many vRLI settings such as NTP, Event Forwarding, Agent Group configurations, etc...
 4. Run in audit only mode or automatically remediate deviations from the defined standard
 
-All this takes place over https using the [Log Insight Configuration APIs.]https://vmw-loginsight.github.io/#Deployment-API. My
+All this takes place over https using the Log Insight Configuration [APIs](https://vmw-loginsight.github.io/#Deployment-API). My
 personal recommendation is that you store your configuration files securely in source control and schedule this to check for unauthorized
 changes and configuration drift on a frequent basis.
 
