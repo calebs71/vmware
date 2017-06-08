@@ -1,14 +1,14 @@
 '''
 ************************* Log Insight Configuration Automation Tool *************************
 **********                                                                         **********
-This python program is built to reference values in a JSON configuration file for an individual Log 
+This python program is built to reference values in a JSON configuration file for an individual Log
 Insight Server with the option to enforce configuration compliance with the gold master being defined
 in the JSON file. All this takes place over https using the Log Insight Configuration APIs. Keep in
 mind that Log Insight 3.3 is the minimum version requirement as that is the version where these APIs
 are available. Both Python 2 and 3 are fully supported to prevent as many headaches as possible.
 
-Example of a JSON configuration file is below. Note - JSON DOES NOT support inline comments so the 
-comments beginning with # must be removed before use but are included to show you what each entry 
+Example of a JSON configuration file is below. Note - JSON DOES NOT support inline comments so the
+comments beginning with # must be removed before use but are included to show you what each entry
 in the configuration file is doing or defining. If you don't want to go the JSON route just yet
 then feel free to try out the "-b" or build wizard option to interactivly generate a simplified
 JSON file.
@@ -17,9 +17,11 @@ JSON file.
 {
 # FQDN or IP of the Log Insight Server to manage
   "fqdn":"li-server1.sub.domain.com",
+# Secondary Node List - For creation of vRLI cluster. Leave as "nodes":"" if single node instance
+  "nodes":["li-server2.sub.domain.com", "li-server3.sub.domain.com"],
 # Desired version of Log Insight - Warns only, no remediation available yet
   "version":"3.3.0-3571626",
-# User to connect as
+# User to connect as (admin is required for new deployments)
   "user":"admin",
   "password":"<PASSWORD!!!!>",
 # Local for local user, domain for domain
@@ -51,7 +53,7 @@ JSON file.
 # Active Directory Integration
   "ad_enable":"true",
   "ad_domain":"domain.com",
-  "ad_username":"cstephenson",
+  "ad_username":"svc-acct-li",
   "ad_password":"MY Super Secret Password 1234!!$",
   "ad_connType":"STANDARD",
   "ad_port":"389",
@@ -63,18 +65,14 @@ JSON file.
 # NTP Servers to use
   "ntp_servers":["time.vmware.com", "0.vmware.pool.ntp.org", "1.vmware.pool.ntp.org"],
 # List of Agent Groups
-  "agent_groups":["Linux", "Windows", "vSphere 6.x - vCenter (Linux) Essential", "Microsoft - SQL Server"],
+  "agent_groups":["Linux", "Microsoft - Windows", "vSphere 6.0 - vCenter (Linux) Essential", "vCloud Director Cell Servers"],
 # Each defined Agent Group needs a config
-  "agent_group_Linux":{ "name": "Linux", "criteria": "not (os=~\"*Windows*\")", "agentConfig": "[filelog|auth]\ndirectory=/var/log\ninclude=auth.log;auth.log.?\nparser=syslog_parser\n\n[filelog|messages]\ndirectory=/var/log\ninclude=messages;messages.?\nparser=syslog_parser\n\n[filelog|syslog]\ndirectory=/var/log\ninclude=syslog;syslog.?\nparser=syslog_parser\n\n[parser|syslog_parser]\nbase_parser=clf\nformat=%t %i %{appname}i: %M\nfield_decoder={\"appname\":\"syslog_appname_parser\"}\nexclude_fields=log_message\n\n[parser|syslog_appname_parser]\nbase_parser=clf\nformat=%{appname}i[%{thread_id}i]\n\n[filelog|secure]\ndirectory=/var/log\ninclude=secure*\n\n[filelog|audit]\ndirectory=/var/log/audit\ninclude=audit*", "info": "Generic Linux agent group to collect events from standard log locations."},
-# and one for Windows
-  "agent_group_Microsoft - Windows":{ "name":"Microsoft - Windows","criteria":"os=~\"*Windows*\"","agentConfig":"[winlog|Application]\nchannel=Application\n\n[winlog|Security]\nchannel=Security\n\n[winlog|System]\nchannel=System\n\n[winlog|WindowsFirewall]\nchannel=Microsoft-Windows-Windows Firewall With Advanced Security/Firewall\n\n[winlog|UAC]\nchannel=Microsoft-Windows-UAC/Operational\n","info":"This is the agent group configuration for Microsoft - Windows content pack.\nYou can find this under Administration -> Management -> Agents -> All Agents drop down.\nTo apply,copy this template to active groups , add filters and save.\n " },
-# and one for vCD
-  "agent_group_vCloud Director Cell Servers":{"name":"vCloud Director Cell Servers","criteria":"(hostname=~\"*vcd*\") and (not (os=~\"*Windows*\"))","agentConfig":"[filelog|vcd-essential]\ndirectory=/opt/vmware/vcloud-director/logs\n;include=vcloud-container-info*;upgrade*;vmware-vcd-support*;watchdog*\n; -- Comment out the above include and use the below line INSTEAD to collect debug level logs --\n;                                ------- WARNING -------\n;        Enabling debug logs will cause an exponential growth in your log ingestion  that can\n;        cause your logs to roll faster than expected as well as other possible issues.\n;        Only enable this if you know what you are doing and are ready for the additional load!\ninclude=vcloud-container-debug*;upgrade*;vmware-vcd-support*;watchdog*\nevent_marker=\\d{4}-\\d{2}-\\d{2}\n","info":"This Agent Group contains the necessary log file configuration to collect from VMware vCloud Director Servers using the Log Insight Agent for Linux. Log Insight Agent use is highly recommended!<br>" },
-# and one for vCSA
-  "agent_group_vSphere 6.x - vCenter (Linux) Essential": {"name":"vSphere 6.x - vCenter (Linux) Essential","criteria":"(((hostname=~\"*vc*\") or (hostname=~\"*psc*\")) or (hostname=~\"*sso*\")) and (os=~\"*Suse*\")","agentConfig":"[filelog|vsphere6-linux-applmgmt]\ndirectory=/var/log/vmware/applmgmt\ninclude=*.log*;*.txt*\nevent_marker=^\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-linux-sso]\ndirectory=/var/log/vmware/sso\ninclude=*.log*;*.txt*\nexclude=vmware-identity-sts.log*;vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-linux-sso-sts]\ndirectory=/var/log/vmware/sso\ninclude=vmware-identity-sts.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-linux-sts-parser\nexclude_fields=date;time;log_message\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-linux-sso-idmd]\ndirectory=/var/log/vmware/sso\ninclude=vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-linux-idmd-parser\nexclude_fields=date;time;log_message\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-linux-vpxd]\ndirectory=/var/log/vmware/vpxd\ninclude=*.log*;*.txt*\nevent_marker=^\\d\nparser=vsphere6-linux-vpxd-parser\nexclude_fields=date;time;log_message\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-linux-vsphere-client]\ndirectory=/var/log/vmware/vsphere-client\ninclude=*.log*;*.txt*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-linux-vsphere-client-logs]\ndirectory=/var/log/vmware/vsphere-client/logs\ninclude=*.log*;*.txt*\nexclude=vsphere_client_virgo.log*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-linux-vsphere-client-virgo-logs]\ndirectory=/var/log/vmware/vsphere-client/logs\ninclude=vsphere_client_virgo*.log*\nevent_marker=^\\[\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-linux-virgo-parser\nexclude_fields=date;time;log_message;num1;num2;num3\ntags={\"vmw_product\":\"vcenter\"}\n\n[parser|vsphere6-linux-sts-parser]\nbase_parser=clf\nformat=[%{date}i %{thread}i %{domain}i             %{session}i %{severity}i %{component}i] %M\n\n[parser|vsphere6-linux-idmd-parser]\nbase_parser=clf\nformat=[%{date}i %{domain}i             %{session}i %{severity}i] [%{component}i] %M\n\n[parser|vsphere6-linux-vpxd-parser]\nbase_parser=clf\nformat=%{date}i %{severity}i %{appname}i[%{procid}i] %M\n\n[parser|vsphere6-linux-virgo-parser]\nbase_parser=clf\nformat=[%{date}i] [%{severity}i] %{thread}i         %{component}i                      %M\nnext_parser=vsphere6-linux-virgo-parser2\n\n[parser|vsphere6-linux-virgo-parser2]\nbase_parser=clf\nformat=[%{date}i] [%{severity}i] %{thread}i         %{num1}i %{num2}i %{num3}i %{component}i                      %M","info":"<span>The group contains configuration for only the essential VCSA log files including SSO. This configuration is recommended for most environments as it contains the most relevant logs at the lowest ingestion rate and also provides full functionality of the vSphere content pack.</span><br>"},
-# and 1 for Windows vCenters
-  "agent_group_vSphere 6.x - vCenter (Windows) Essential":{"name":"vSphere 6.x - vCenter (Windows) Essential","criteria":"((os=~\"*windows*\") and (((hostname=~\"*sso*\") or (hostname=~\"*vc*\")) or (hostname=~\"*psc*\"))) and (not (hostname=~\"*sql*\"))","agentConfig":"[filelog|vsphere6-windows-sso]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\sso\\\ninclude=*.log*;*.txt*\nexclude=VMwareIdentityMgmtService.*.log*;vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-windows-sso-idmd]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\sso\\\ninclude=vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-windows-idmd-parser\nexclude_fields=log_message\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-windows-vpxd]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\vmware-vpx\ninclude=*.log*;*.txt*\nevent_marker=^\\d\nparser=vsphere6-windows-vpxd-parser\nexclude_fields=log_message\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-windows-vsphere-client]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\vsphere-client\ninclude=*.log*;*.txt*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-windows-vsphere-client-logs]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\vsphere-client\\logs\ninclude=*.log*;*.txt*\nexclude=vsphere_client_virgo*.log*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-windows-vsphere-client-virgo-logs]\ndirectory=C:\\ProgramData\\VMware\\vCenterServer\\logs\\vsphere-client\\logs\ninclude=vsphere_client_virgo*.log*\nevent_marker=^\\[\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-windows-virgo-parser\nexclude_fields=log_message;num1;num2;num3\ntags={\"vmw_product\":\"vcenter\"}\n\n[parser|vsphere6-windows-sts-parser]\nbase_parser=clf\nformat=[%t %{thread}i %{domain}i             %{session}i %{severity}i %{component}i] %M\n\n[parser|vsphere6-windows-idmd-parser]\nbase_parser=clf\nformat=[%t %{domain}i             %{session}i %{severity}i] [%{component}i] %M\n\n[parser|vsphere6-windows-vpxd-parser]\nbase_parser=clf\nformat=%t %{severity}i %{appname}i[%{procid}i] %M\n\n[parser|vsphere6-windows-virgo-parser]\nbase_parser=clf\nformat=[%t] [%{severity}i] %{thread}i         %{component}i                      %M\nnext_parser=vsphere6-windows-virgo-parser2\n\n[parser|vsphere6-windows-virgo-parser2]\nbase_parser=clf\nformat=[%t] [%{severity}i] %{thread}i         %{num1}i %{num2}i %{num3}i %{component}i                      %M\n","info":"<span>The group contains configuration for only the essential vCenter Server log files including SSO. This configuration is recommended for most environments as it contains the most relevant logs at the lowest ingestion rate and also provides full functionality of the vSphere content pack.</span><br>"}
+"agent_group_Linux":{ "name": "Linux", "criteria": "not (os=~\"*Windows*\")", "agentConfig": "[filelog|auth]\ndirectory=/var/log\ninclude=auth.log;auth.log.?\nparser=syslog_parser\n\n[filelog|messages]\ndirectory=/var/log\ninclude=messages;messages.?\nparser=syslog_parser\n\n[filelog|syslog]\ndirectory=/var/log\ninclude=syslog;syslog.?\nparser=syslog_parser\n\n[parser|syslog_parser]\nbase_parser=clf\nformat=%t %i %{appname}i: %M\nfield_decoder={\"appname\":\"syslog_appname_parser\"}\nexclude_fields=log_message\n\n[parser|syslog_appname_parser]\nbase_parser=clf\nformat=%{appname}i[%{thread_id}i]\n\n[filelog|secure]\ndirectory=/var/log\ninclude=secure*\n\n[filelog|audit]\ndirectory=/var/log/audit\ninclude=audit*", "info": "Generic Linux agent group to collect events from standard log locations."},
+"agent_group_Microsoft - Windows":{ "name":"Microsoft - Windows","criteria":"os=~\"*Windows*\"","agentConfig":"[winlog|Application]\nchannel=Application\n\n[winlog|Security]\nchannel=Security\n\n[winlog|System]\nchannel=System\n\n[winlog|WindowsFirewall]\nchannel=Microsoft-Windows-Windows Firewall With Advanced Security/Firewall\n\n[winlog|UAC]\nchannel=Microsoft-Windows-UAC/Operational\n","info":"This is the agent group configuration for Microsoft - Windows content pack.\nYou can find this under Administration -> Management -> Agents -> All Agents drop down.\nTo apply,copy this template to active groups , add filters and save.\n " },
+"agent_group_vCloud Director Cell Servers":{"name":"vCloud Director Cell Servers","criteria":"(hostname=~\"*vcd*\") and (not (os=~\"*Windows*\"))","agentConfig":"[filelog|vcd-essential]\ndirectory=/opt/vmware/vcloud-director/logs\ninclude=vcloud-container-debug*;upgrade*;vmware-vcd-support*;watchdog*\nevent_marker=\\d{4}-\\d{2}-\\d{2}\ntags={\"vmw_product\":\"vcd\"}","info":"This Agent Group contains the necessary log file configuration to collect from VMware vCloud Director Servers using the Log Insight Agent for Linux. Log Insight Agent use is highly recommended!<br>" },
+"agent_group_vSphere 6.0 - vCenter (Linux) Essential": {"name":"vSphere 6.0 - vCenter (Linux) Essential","criteria":"((hostname=~\"*vc*\") or (hostname=~\"*psc*\")) and ((os=~\"*suse*\") or (os=~\"*photon*\"))","agentConfig":"[filelog|vsphere6-lin-applmgmt]\ndirectory=/var/log/vmware/applmgmt\ninclude=*.log*;*.txt*\nevent_marker=^\\d\nparser=vsphere6-lin-applmgmt-parser\nexclude_fields=log_message\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-lin-sso]\ndirectory=/var/log/vmware/sso\ninclude=*.log*;*.txt*\nexclude=vmware-identity-sts.log*;vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-lin-sso-sts]\ndirectory=/var/log/vmware/sso\ninclude=vmware-identity-sts.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-lin-sts-parser\nexclude_fields=log_message\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-lin-sso-idmd]\ndirectory=/var/log/vmware/sso\ninclude=vmware-sts-idmd.log*\nevent_marker=^(\\[)?\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-lin-idmd-parser\nexclude_fields=log_message\ntags={\"vmw_product\":\"sso\"}\n\n[filelog|vsphere6-lin-vpxd]\ndirectory=/var/log/vmware/vpxd\ninclude=*.log*;*.txt*\nevent_marker=^(\\d{4}-\\d{2}-\\d{2}|--> )\nparser=vsphere6-lin-vpxd-parser\nexclude_fields=log_message\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-lin-vsphere-client]\ndirectory=/var/log/vmware/vsphere-client\ninclude=*.log*;*.txt*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-lin-vsphere-client-logs]\ndirectory=/var/log/vmware/vsphere-client/logs\ninclude=*.log*;*.txt*\nexclude=vsphere_client_virgo.log*\nevent_marker=^(\\[)?\\d\ntags={\"vmw_product\":\"vcenter\"}\n\n[filelog|vsphere6-lin-vsphere-client-virgo-logs]\ndirectory=/var/log/vmware/vsphere-client/logs\ninclude=vsphere_client_virgo*.log*\nevent_marker=^\\[\\d{4}-\\d{2}-\\d{2}\nparser=vsphere6-lin-virgo-parser\nexclude_fields=log_message;num1;num2;num3\ntags={\"vmw_product\":\"vcenter\"}\n\n[parser|vsphere6-lin-applmgmt-parser]\nbase_parser=clf\nformat=%t [%i]%{severity}i:%{component}i:%M\n\n[parser|vsphere6-lin-sts-parser]\nbase_parser=clf\nformat=[%t %{thread}i %{domain}i             %{session}i %{severity}i %{component}i] %M\n\n[parser|vsphere6-lin-idmd-parser]\nbase_parser=clf\nformat=[%t %{domain}i             %{session}i %{severity}i] [%{component}i] %M\n\n[parser|vsphere6-lin-vpxd-parser]\nbase_parser=clf\nformat=%t %{severity}i %{appname}i[%{procid}i] %M\n\n[parser|vsphere6-lin-virgo-parser]\nbase_parser=clf\nformat=[%t] [%{severity}i] %{thread}i         %{component}i                      %M\nnext_parser=vsphere6-lin-virgo-parser2\n\n[parser|vsphere6-lin-virgo-parser2]\nbase_parser=clf\nformat=[%t] [%{severity}i] %{thread}i         %{num1}i %{num2}i %{num3}i %{component}i                      %M","info":"<span>The group contains configuration for only the essential VCSA log files including SSO. This configuration is recommended for most environments as it contains the most relevant logs at the lowest ingestion rate and also provides full functionality of the vSphere content pack.</span><br>"}
 }
+
 -------------------------------------
 
 Once your JSON file has been defined the you can launch the tool using:
@@ -160,6 +158,7 @@ def jsonWizard():
     # Time to put it in a list and make it all JSON
     wz_data = {}
     wz_data['fqdn'] = wz_fqdn
+    wz_data['nodes'] = ''
     wz_data['version'] = ''
     wz_data['user'] = 'admin'
     wz_data['password'] = wz_password
@@ -220,7 +219,6 @@ def jsonWizard():
     except:
         print('Unable to save file')
 
-
 # Print documentation if requested
 if args.doc:
     print(__doc__)
@@ -249,36 +247,47 @@ configFile = str(args.file)
 try:
     configDataStr = open(configFile).read()
 except:
-    print('ERROR - Failed to open the specified file')
+    print('-!!ERROR!! - Failed to open the specified file')
     sys.exit()
-    
+
 configData = json.loads(configDataStr)
 
 baseUrl = 'https://' + configData['fqdn']
 # Only used for the initial connection
 unAuthHeaders = {"Content-Type":"application/json"}
 
-def main():
-    print('\n-- Welcome to the Log Insight Configuration API Audit and Standalone Remediation Tool --')
-    print('        This code is not released, supported by or related to VMware in any way.\n')
 
+def main():
+    print('\n-- Welcome to the vRealize Log Insight (vRLI) Configuration Management and Audit Tool --')
+    print('        This code is not released, supported by or related to VMware in any way.\n')
 
     if remediateFlag > 0:
         print('*Remediation flag detected* - Will automatically remediate issues\n')
     else:
         print('No remediation selected, set the -r flag if you wish to automatically remediate issues.\n')
 
-    # Connect to the LI Server and get a Bearer Token
+    # Connect to the LI Server and get a Bearer Token that all tasks will require
     sessionAuth = connectToServer()
-    # Build new headers with token
+    # Build new headers with authorization token
     authHeadersJson = {"Content-Type":"application/json", "Authorization":str(sessionAuth)}
+    # Need to license the master node before we add additional nodes
+    getLicense(authHeadersJson)
+    # Verify all secondary nodes are joined to a cluster
+    #   bit of technical debt here as we're not verifying it's the correct cluster
+    if len(configData['nodes']) > 0:
+        print('\nThis appears to be a cluster configuration\n')
+        for node in configData['nodes']:
+            try:
+                buildAdditionalNode(unAuthHeaders, node, authHeadersJson)
+            except:
+                print('Unable to add device: ' + str(node))
+    else:
+        print('\nThis appears to be a single node instance\n')
     # Get Version
     getVersion(authHeadersJson)
-    # Check License
-    getLicense(authHeadersJson)
     # Check NTP
     getNtp(authHeadersJson)
-    # Check SMTP 
+    # Check SMTP
     getEmail(authHeadersJson)
     # Check Forwarder
     getForwarder(authHeadersJson)
@@ -311,17 +320,36 @@ def connectToServer():
                 '"username":"' + configData['user'] + '",' + \
                 '"password":"' + configData['password'] + '"' \
                 '}'
-    conn = requests.post(str(authUrl),headers = unAuthHeaders, verify = False, data = str(buildJson))
-    connResponse = conn.json()
     try:
-        authSession = connResponse['sessionId']
-        if len(authSession) > 10:
-            print('Successfully connected to Log Insight')
-            authSessionKey = 'Bearer ' + authSession
-            return authSessionKey
-    except:
+        conn = requests.post(str(authUrl),headers = unAuthHeaders, verify = False, data = str(buildJson))
+        # Detect if this is a newly deployed vRLI Server or already configured
+        if 'Are you starting a new Log Insight deployment or joining an existing one' in str(conn.text):
+            print('This appears to be a new build, hang on, this can take a couple minutes...')
+            if remediateFlag > 0:
+                buildInitialNode(unAuthHeaders)
+                try:
+                    print('Attempting to connect to newly deployed server')
+                    conn = requests.post(str(authUrl),headers = unAuthHeaders, verify = False, data = str(buildJson))
+                except:
+                    print('Unable to reconnect')
+                    sys.exit()
+            else:
+                print('\nOops, Remediation is required for new deployments, please specify the -r flag and re-run\n')
+                sys.exit()
+        # Everything below here requires the master node to be online and bootstrapped
+        try:
+            connResponse = conn.json()
+            authSession = connResponse['sessionId']
+            if len(authSession) > 10:
+                print('Successfully connected to Log Insight')
+                authSessionKey = 'Bearer ' + authSession
+                return authSessionKey
+        except:
             print('-!!ERROR!!- Unable to connect to the Log Insight Server. Please check your credentials.\n')
             sys.exit()
+    except:
+        print('Unable to connect to your Log Insight Server')
+        sys.exit()
 
 
 def getVersion(authHeadersJson):
@@ -336,7 +364,7 @@ def getVersion(authHeadersJson):
         liReleaseName = str(version['releaseName'])
         liVersion = str(version['version'])
 
-        print('Log Insight Server at ' + str(configData['fqdn']) + ' running version ' + liVersion + ' ' + liReleaseName + '\n')
+        print('vRLI running at ' + str(configData['fqdn']) + ' with version ' + liVersion + ' ' + liReleaseName + '\n')
 
         if str(liVersion).lower() == str(configData['version']).lower():
             print('Version matches desired state')
@@ -351,6 +379,76 @@ def getVersion(authHeadersJson):
     if int(majorRelease) <= 3 and int(minorRelease) < 3:
         print('I\'m sorry but this Log Insight Server is not running version 3.3 or newer so the API\'s aren\'t available. Please upgrade your LI server\n')
         sys.exit()
+
+
+def buildInitialNode(unAuthHeaders):
+    try:
+        buildUrl = str(baseUrl) + ':9543/api/v1/deployment/new'
+        buildJson = '{"user": {' + \
+                    '"userName":"' + configData['user'] + '",' + \
+                    '"password":"' + configData['password'] + '",' + \
+                    '"email":"' + configData['email_sender'] + '"' + \
+                    '}}'
+        build = requests.post(str(buildUrl), headers = unAuthHeaders, verify = False, data = str(buildJson))
+        if 'This call isn\'t allowed after the LI server is bootstrapped' in str(build.text):
+            print('This server is already bootstrapped, proceeding on....')
+        else:
+            if build.status_code >= 400:
+                print('-!!ERROR!! - Unable to remediate License Configuration - See error details below ')
+                print(' - Status Code: ' + str(build.status_code))
+                print(' - Error Details: ' + str(build.text))
+            else:
+                # Wait for server to fully initialize before connecting to it
+                time.sleep(10)
+    except:
+        print('-!!ERROR!! - Unable to bootstrap initial vRLI Node')
+
+
+def buildAdditionalNode(unAuthHeaders, node, authHeadersJson):
+    try:
+        buildUrl = 'https://' + str(node) + ':9543/api/v1/deployment/join'
+        buildJson = '{"masterFQDN":"' + configData['fqdn'] + '"}}'
+        build = requests.post(str(buildUrl), headers = unAuthHeaders, verify = False, data = str(buildJson))
+        if 'This call isn\'t allowed after the LI server is bootstrapped' in str(build.text):
+            print('Node: ' + str(node) + ' is already a member of a cluster, proceeding on....')
+        else:
+            print('Attempting to join server ' + str(node) + ' to cluster')
+            if build.status_code >= 400:
+                print('-!!ERROR!! - Unable to remediate License Configuration - See error details below ')
+                print(' - Status Code: ' + str(build.status_code))
+                print(' - Error Details: ' + str(build.text))
+            else:
+                rJSON = json.loads(str(build.text))
+                workerPort = rJSON['workerPort']
+                workerAddress = rJSON['workerAddress']
+                workerToken = rJSON['workerToken']
+                # Want to make sure the worker is ready to be authorized
+                time.sleep(5)
+                authorizeNodes(authHeadersJson, workerAddress, workerPort, workerToken)
+    except:
+            print('-!!ERROR!! - Unable to bootstrap additional node: ' + str(node))
+
+
+def authorizeNodes(authHeadersJson, workerAddress, workerPort, workerToken):
+    try:
+        print('Approving node ' + str(workerAddress) + ' to be added to the cluster')
+        buildUrl = str(baseUrl) + '/api/v1/deployment/approve'
+        buildJson = '{' + \
+                    '"workerAddress":"' + str(workerAddress) + '",' + \
+                    '"workerPort":"' + str(workerPort) + '",' + \
+                    '"workerToken":"' + str(workerToken) + '",' + \
+                    '"approved":"true"' + \
+                    '}'
+        build = requests.post(str(buildUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
+        if build.status_code >= 400:
+            print('-!!ERROR!! - Unable to authorize node - See error details below ')
+            print(' - Status Code: ' + str(build.status_code))
+            print(' - Error Details: ' + str(build.text))
+        else:
+            print('Node authorized!\n')
+    except:
+        print('-!!ERROR!! - Unable to authorize additional node: ' + str(workerAddress))
+
 
 def getLicense(authHeadersJson):
     # Sanity check to make sure all data is present
@@ -416,7 +514,7 @@ def getEmail(authHeadersJson):
             print('Email configuration matches desired state')
         else:
             print('-!!WARN!!- Email configuration DOES NOT match desired state')
-            if remediateFlag > 0: 
+            if remediateFlag > 0:
                 setEmail(authHeadersJson)
     except:
         print('-!!ERROR!! - Unable to get Email information')
@@ -511,6 +609,7 @@ def getForwarder(authHeadersJson):
     except:
         print('-!!ERROR!! - Unable to get Forwarder information')
 
+
 def updateForwarder(authHeadersJson):
     # Sanity check to make sure all data is present
     if len(configData['forward_name']) == 0 or \
@@ -540,8 +639,6 @@ def updateForwarder(authHeadersJson):
                 '"workerCount":' + str(configData['forward_workerCount']) + ',' + \
                 '"filter":"' + str(configData['forward_filter']).replace('"','\\"') + '"' + \
                 '}'
-    print(buildJson)
-    print(str(forwarderUrl))
     try:
         configForwarder = requests.put(str(forwarderUrl), headers = authHeadersJson, verify = False, data = str(buildJson))
     except Exception as e:
@@ -636,6 +733,7 @@ def getAd(authHeadersJson):
     except:
         print('-!!ERROR!! - Unable to get Active Directory information')
 
+
 def setAd(authHeadersJson):
     # Sanity check to make sure all data is present
     if len(configData['ad_domain']) == 0 or \
@@ -679,17 +777,12 @@ def getReqContentPacks(authHeadersJson):
         contentPacksUrl = str(baseUrl) + '/api/v1/contentpacks'
         inContentPacks = requests.get(str(contentPacksUrl), headers = authHeadersJson, verify = False).json()
         inContentPacks =  inContentPacks['contentPackMetadataList']
-
         for reqContentPack in configData['content_packs']:
             reqContentPackVer = configData['content_packs'][str(reqContentPack)]
             inContentPackLen = len(inContentPacks)
-
-            #print '\n\nRequired:' +  reqContentPack + ' ' +  reqContentPackVer
             for inContentPack in inContentPacks:
-                #print str(inContentPackLen)
                 inContentPackName = str(inContentPack['namespace'])
                 inContentPackVer = str(inContentPack['contentVersion'])
-                #print 'Installed: ' +inContentPackName + ' ' + inContentPackVer
                 if str(inContentPackName).lower() == str(reqContentPack).lower():
                     print('Required Content Pack ' + str(reqContentPack) + ' installed, checking version...')
                     # We should make this only alert if version is less than specified version
@@ -700,12 +793,9 @@ def getReqContentPacks(authHeadersJson):
                         print('-!!WARN!!- Content Pack ' + reqContentPack + ' installed but at incorrent version')
                         print('-- Automatic remediation not available in this version --')
                 else:
-                    #print 'Content Pack does not match'
                     inContentPackLen = inContentPackLen - 1
-                    #print str(inContentPackLen)
 
             if inContentPackLen != 1:
-                #print str(inContentPackLen)
                 print('-!!WARN!!- No match installed for Content Pack ' + str(reqContentPack))
                 print('-- Automatic remediation not available in this version --')
     except:
@@ -731,19 +821,15 @@ def getAccessControls(authHeadersJson):
         inAccessControlsLen = len(inAccessControls)
 
         for accessControl in inAccessControls:
-            #print(str(accessControl['name']))
             if str(accessControl['name'].lower()) == configData['ac_ad_group'].lower():
-                #print('Access Control group membership matches desired state')
                 groupIds = accessControl['groupIds']
                 groupIdsLen = len(groupIds)
                 for groupId in groupIds:
-                    #print(groupId)
                     if str(groupId).lower() == str(configData['ac_role_uuid']).lower():
                         print('Access Control Group matches desired state')
                     else:
                         groupIdsLen = groupIdsLen -1
                 if groupIdsLen != 1:
-                    # Need to fix this once I have more API information
                     print('-!!WARN!!- Access Control Group DOES NOT match desired state - AD member added to incorrect Log Insight Role')
                     if remediateFlag > 0:
                         editAccessControl(authHeadersJson)
@@ -810,7 +896,6 @@ def editAccessControl(authHeadersJson):
         getAccessControls(authHeadersJson)
 
 
-
 def getNtp(authHeadersJson):
     # Sanity check to make sure all data is present
     if len(configData['ntp_servers']) == 0:
@@ -845,8 +930,7 @@ def setNtp(authHeadersJson):
         print('Desired NTP configuration NOT specified in JSON template - Skipping Remediation')
         return
 
-    #Have list of NTP Servers that need iterated through
-    #Potential Technical debt, not allowing ESXi host sync since it's not recommended anyway
+    #Not allowing ESXi host sync since it's not recommended anyway
     print('Executing NTP remediation')
     ntpUrl = str(baseUrl) + '/api/v1/time/config'
     buildJson = '{' + \
@@ -931,7 +1015,7 @@ def compareAgentGroups(agtGroupDetailName, agtGroupDetailInfo, agtGroupDetailCri
     agtGroupDetailCriteria = agtGroupDetailCriteria.replace('\\\\','\\').strip()
     agtGroupDetailAgentConfig = agtGroupDetailAgentConfig.replace('\\\\','\\').strip()
 
-    # Useful for debugging what doesn't match....
+    # VERY Useful for debugging what doesn't match....
     #print('\n\nComparing:\n' + str(desiredAgtGroupName).lower() + '\nDesiredHash: ' + str(getMd5Hash(str(desiredAgtGroupName))) + '\nActualHash:  ' + str(getMd5Hash(str(agtGroupDetailName))) + '\nWith:\n' + str(agtGroupDetailName).lower())
     #print('\n\nComparing:\n' + str(desiredAgtGroupCriteria).lower() + '\nDesiredHash: ' + str(getMd5Hash(str(desiredAgtGroupCriteria))) + '\nActualHash:  ' + str(getMd5Hash(str(agtGroupDetailCriteria))) + '\nWith:\n' + str(agtGroupDetailCriteria).lower())
     #print('\n\nComparing:\n' + str(desiredAgtGroupAgentConfig).lower() + '\nDesiredHash: ' + str(getMd5Hash(str(desiredAgtGroupAgentConfig))) + '\nActualHash:  ' + str(getMd5Hash(str(agtGroupDetailAgentConfig))) + '\nWith:\n' + str(agtGroupDetailAgentConfig).lower())
@@ -972,9 +1056,6 @@ def updateAgentGroup(authHeadersJson, desiredAgtGroupBuildJson, desiredAgtGroupN
     print('  Executing Agent Group update remediation')
     # Have to make the URL safe for spaces, might be others that I haven't found yet....
     agtGrpUrl = str(baseUrl) + '/api/v1/agent/groups/' + str(desiredAgtGroupName).replace(' ','%20')
-    #print (agtGrpUrl)
-    #print(str(desiredAgtGroupBuildJson))
-
     try:
         configAgtGrp =  requests.put(str(agtGrpUrl), headers = authHeadersJson, verify = False, data = str(desiredAgtGroupBuildJson))
     except Exception as e:
@@ -990,8 +1071,6 @@ def updateAgentGroup(authHeadersJson, desiredAgtGroupBuildJson, desiredAgtGroupN
 def createAgentGroup(authHeadersJson, desiredAgtGroupBuildJson):
     print('  Executing Agent Group creation remediation')
     agtGrpUrl = str(baseUrl) + '/api/v1/agent/groups'
-    #print(str(desiredAgtGroupBuildJson))
-
     try:
         configAgtGrp =  requests.post(str(agtGrpUrl), headers = authHeadersJson, verify = False, data = str(desiredAgtGroupBuildJson))
     except Exception as e:
