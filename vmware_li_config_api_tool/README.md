@@ -11,7 +11,7 @@ personal recommendation is that you store your configuration files securely in s
 changes and configuration drift on a frequent basis.
 
 An example screenshot showing a new deployment, adding 2 additional nodes to the new cluster and configuring settings:
-(https://4.bp.blogspot.com/-4YKeiWbtCTc/WTmSIi-hA8I/AAAAAAAACZk/xNEu7XBMCaQXRlIry00exqRZ4fAM-wPIgCLcB/s1600/2017-06-08%2B12_05_39-Fedora%2B25%2B-%2BVMware%2BKVM.png)
+![Screenshot](https://4.bp.blogspot.com/-4YKeiWbtCTc/WTmSIi-hA8I/AAAAAAAACZk/xNEu7XBMCaQXRlIry00exqRZ4fAM-wPIgCLcB/s1600/2017-06-08%2B12_05_39-Fedora%2B25%2B-%2BVMware%2BKVM.png)
 
 This code should work with both Python 2 and 3 and is free and open source under Apache 2.0.
 
