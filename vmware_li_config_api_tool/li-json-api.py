@@ -394,7 +394,7 @@ def buildInitialNode(unAuthHeaders):
             print('This server is already bootstrapped, proceeding on....')
         else:
             if build.status_code >= 400:
-                print('-!!ERROR!! - Unable to remediate License Configuration - See error details below ')
+                print('-!!ERROR!! - Unable to build initial node - See error details below ')
                 print(' - Status Code: ' + str(build.status_code))
                 print(' - Error Details: ' + str(build.text))
             else:
@@ -414,7 +414,7 @@ def buildAdditionalNode(unAuthHeaders, node, authHeadersJson):
         else:
             print('Attempting to join server ' + str(node) + ' to cluster')
             if build.status_code >= 400:
-                print('-!!ERROR!! - Unable to remediate License Configuration - See error details below ')
+                print('-!!ERROR!! - Unable to build additional node - See error details below ')
                 print(' - Status Code: ' + str(build.status_code))
                 print(' - Error Details: ' + str(build.text))
             else:
