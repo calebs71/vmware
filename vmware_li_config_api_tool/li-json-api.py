@@ -11,7 +11,8 @@ Example of a JSON configuration file is below. Note - JSON DOES NOT support inli
 comments beginning with # must be removed before use but are included to show you what each entry
 in the configuration file is doing or defining. If you don't want to go the JSON route just yet
 then feel free to try out the "-b" or build wizard option to interactivly generate a simplified
-JSON file.
+JSON file. Passing the passwords for vRLI's Admin user, the AD lookup account and SMTP Server is
+available via switches (for automation) or securely by waiting for the prompt to ask you.
 
 -------------------------------------
 {
@@ -23,7 +24,6 @@ JSON file.
   "version":"3.3.0-3571626",
 # User to connect as (admin is required for new deployments)
   "user":"admin",
-  "password":"<PASSWORD!!!!>",
 # Local for local user, domain for domain
   "auth_provider":"Local",
 # This Log Insight server's license key
@@ -35,7 +35,6 @@ JSON file.
   "email_sslAuth":"false",
   "email_tls":"false",
   "email_user":"",
-  "email_password":"",
 # Event Forwarder Configuration
   "forward_name":"Forward All",
 # Forwarder destination
@@ -54,7 +53,6 @@ JSON file.
   "ad_enable":"true",
   "ad_domain":"domain.com",
   "ad_username":"svc-acct-li",
-  "ad_password":"MY Super Secret Password 1234!!$",
   "ad_connType":"STANDARD",
   "ad_port":"389",
   "ad_sslOnly":"false",
@@ -101,11 +99,13 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 parser = argparse.ArgumentParser()
+parser.add_argument('-p', '--password', required=False, action='store', help='vRLI Administrator password')
+parser.add_argument('-l', '--adPassword', required=False, action='store', help='Active Directory lookup account password')
+parser.add_argument('-s', '--smtpPassword', required=False, action='store', help='SMTP Server password or None')
 parser.add_argument('-f', '--file', required=False, action='store', help='Path to JSON configuration file containing the desired state')
 parser.add_argument('-r', '--remediate', required=False, action='count', help='If set to true or yes then script will automatically remediate issues')
 parser.add_argument('-d', '--doc', required=False, action='count',  help='Imbeded documentation')
 parser.add_argument('-b', '--build', required=False, action='count', help='Wizard to help build JSON configuration file')
-
 args = parser.parse_args()
 
 
@@ -126,7 +126,6 @@ def jsonWizard():
     print("the template in the help since it's much more robust!\n")
 
     wz_fqdn = userQuery('Please enter the FQDN or IP of your Log Insight Server: ')
-    wz_password = getpass.getpass(prompt="Enter the Log Insight Server's Admin password: ")
     wz_license = userQuery('Enter the vRLI license key: ')
     wz_emailSender = userQuery('Enter sending email address for this LI server to use: ')
     wz_emailServer = userQuery('Enter the SMTP mail server to use: ')
@@ -138,7 +137,6 @@ def jsonWizard():
         print('Skipping that then...')
     elif wz_emailAuth.lower() == 'y':
         wz_emailUser = userQuery('Enter your SMTP username: ')
-        wz_emailPassword = getpass.getpass(prompt="Enter your SMTP password: ")
     wz_adEnable = userQuery('Do you wish to enable Active Directory authentication? (y/n): ')
     while wz_adEnable.lower() != 'y' and wz_adEnable.lower() != 'n':
         print('Please choose "y" or "n"')
@@ -148,7 +146,6 @@ def jsonWizard():
     elif wz_adEnable.lower() == 'y':
         wz_adDomain = userQuery('Enter the domain to use: ')
         wz_adUsername = userQuery('Enter the Active Directory user to use for directory lookups: ')
-        wz_adPassword = getpass.getpass(prompt="Enter the AD User's password: ")
         wz_adAddGroup = userQuery('Enter the name of an Active Directory Group to make Admins on the Log Insight Server: ')
     wz_ntp_raw = userQuery('Enter an NTP Server to use: ')
     wz_ntp = []
@@ -161,7 +158,6 @@ def jsonWizard():
     wz_data['nodes'] = ''
     wz_data['version'] = ''
     wz_data['user'] = 'admin'
-    wz_data['password'] = wz_password
     wz_data['auth_provider'] = 'Local'
     wz_data['license'] = wz_license
     wz_data['email_sender'] = wz_emailSender
@@ -171,12 +167,10 @@ def jsonWizard():
         wz_data['email_sslAuth'] = 'false'
         wz_data['email_tls'] = 'false'
         wz_data['email_user'] = wz_emailUser
-        wz_data['email_password'] = wz_emailPassword
     else:
         wz_data['email_sslAuth'] = 'false'
         wz_data['email_tls'] = 'false'
         wz_data['email_user'] = ''
-        wz_data['email_password'] = ''
     wz_data['forward_name'] = ''
     wz_data['forward_fqdn'] = ''
     wz_data['forward_protocol'] = ''
@@ -191,7 +185,6 @@ def jsonWizard():
         wz_data['ad_enable'] = 'true'
         wz_data['ad_domain'] = wz_adDomain
         wz_data['ad_username'] = wz_adUsername
-        wz_data['ad_password'] = wz_adPassword
         wz_data['ad_connType'] = 'STANDARD'
         wz_data['ad_port'] = 389
         wz_data['ad_sslOnly'] = 'false'
@@ -201,7 +194,6 @@ def jsonWizard():
         wz_data['ad_enable'] = ''
         wz_data['ad_domain'] = ''
         wz_data['ad_username'] = ''
-        wz_data['ad_password'] = ''
         wz_data['ad_connType'] = ''
         wz_data['ad_port'] = ''
         wz_data['ad_sslOnly'] = ''
@@ -261,13 +253,19 @@ def main():
     print('\n-- Welcome to the vRealize Log Insight (vRLI) Configuration Management and Audit Tool --')
     print('        This code is not released, supported by or related to VMware in any way.\n')
 
+    if args.password == None:
+        password = getpass.getpass(prompt="Please enter the existing (or desired, for new builds) vRLI Admin password:")
+        print('\n')
+    else:
+        password = args.password
+
     if remediateFlag > 0:
         print('*Remediation flag detected* - Will automatically remediate issues\n')
     else:
         print('No remediation selected, set the -r flag if you wish to automatically remediate issues.\n')
 
     # Connect to the LI Server and get a Bearer Token that all tasks will require
-    sessionAuth = connectToServer()
+    sessionAuth = connectToServer(password)
     # Build new headers with authorization token
     authHeadersJson = {"Content-Type":"application/json", "Authorization":str(sessionAuth)}
     # Need to license the master node before we add additional nodes
@@ -304,11 +302,10 @@ def main():
 
 # Should define function for error message and remediation to reduce code
 
-def connectToServer():
+def connectToServer(password):
     # Sanity check to make sure all data is present
     if len(configData['auth_provider']) > 0 and \
-       len(configData['user']) > 0 and \
-       len(configData['password']) > 0:
+       len(configData['user']) > 0:
            print('Connecting to Log Insight')
     else:
         print('ERROR - Needed information is missing! Please check your username, password and auth_provider')
@@ -318,7 +315,7 @@ def connectToServer():
     buildJson = '{' + \
                  '"provider":"' + configData['auth_provider'] + '",' + \
                 '"username":"' + configData['user'] + '",' + \
-                '"password":"' + configData['password'] + '"' \
+                '"password":"' + password + '"' \
                 '}'
     try:
         conn = requests.post(str(authUrl),headers = unAuthHeaders, verify = False, data = str(buildJson))
@@ -326,7 +323,7 @@ def connectToServer():
         if 'Are you starting a new Log Insight deployment or joining an existing one' in str(conn.text):
             print('This appears to be a new build, hang on, this can take a couple minutes...')
             if remediateFlag > 0:
-                buildInitialNode(unAuthHeaders)
+                buildInitialNode(unAuthHeaders, password)
                 try:
                     print('Attempting to connect to newly deployed server')
                     conn = requests.post(str(authUrl),headers = unAuthHeaders, verify = False, data = str(buildJson))
@@ -388,12 +385,12 @@ def statusCodeError(taskDescription, statusCode, statusText):
     print(' - Error Details: ' + str(statusText) + '\n')
 
 
-def buildInitialNode(unAuthHeaders):
+def buildInitialNode(unAuthHeaders, password):
     try:
         buildUrl = str(baseUrl) + ':9543/api/v1/deployment/new'
         buildJson = '{"user": {' + \
                     '"userName":"' + configData['user'] + '",' + \
-                    '"password":"' + configData['password'] + '",' + \
+                    '"password":"' + password + '",' + \
                     '"email":"' + configData['email_sender'] + '"' + \
                     '}}'
         build = requests.post(str(buildUrl), headers = unAuthHeaders, verify = False, data = str(buildJson))
@@ -520,6 +517,15 @@ def getEmail(authHeadersJson):
 
 
 def setEmail(authHeadersJson):
+    if args.smtpPassword == None:
+        smtpPassword = getpass.getpass(prompt="Please enter the SMTP password (press Enter for None): ")
+        print('\n')
+    else:
+        if args.smtpPassword == 'None':
+            smtpPassword = ''
+        else:
+            smtpPassword = args.smtpPassword
+
     # Sanity check to make sure all data is present
     if len(configData['email_sender']) == 0 or \
        len(configData['email_server']) == 0 or \
@@ -539,7 +545,7 @@ def setEmail(authHeadersJson):
                 '"tls":"' + configData['email_tls'] + '",' + \
                 '"defaultSender":"' + configData['email_sender'] + '",' + \
                 '"login":"' + configData['email_user'] + '",' + \
-                '"password":"' + configData['email_password'] + '"' + \
+                '"password":"' + smtpPassword + '"' + \
                 '}}]}'
     configEmail = requests.put(notificationUrl, headers = authHeadersJson, verify = False, data = str(buildJson))
     if configEmail.status_code >= 400 or 'errorMessage' in str(configEmail.text):
@@ -644,7 +650,6 @@ def updateForwarder(authHeadersJson):
     if configForwarder.status_code >= 400 or 'errorMessage' in str(configForwarder.text):
         statusCodeError('configure event forwarder', configForwarder.status_code, configForwarder.text)
     else:
-        print(str(configForwarder.status_code))
         time.sleep(3)
         getForwarder(authHeadersJson)
 
@@ -731,13 +736,18 @@ def setAd(authHeadersJson):
     # Sanity check to make sure all data is present
     if len(configData['ad_domain']) == 0 or \
        len(configData['ad_username']) == 0 or \
-       len(configData['ad_password']) == 0 or \
        len(configData['ad_connType']) == 0 or \
        len(configData['ad_sslOnly']) == 0 or \
        len(configData['ad_enable']) == 0 or \
        configData['ad_port'] is None:
         print('Desired Active Directory configuration NOT specified in JSON template - Skipping Remediation')
         return
+    print('Running AD Config....')
+    if args.adPassword == None:
+        adPassword = getpass.getpass(prompt="Please enter the Active Directory Lookup password: ")
+        print('\n')
+    else:
+        adPassword = args.adPassword
 
     print('Executing AD authentication remediation')
     adUrl = str(baseUrl) + '/api/v1/ad/config'
@@ -745,7 +755,7 @@ def setAd(authHeadersJson):
                 '"enableAD":"' + configData['ad_enable'] + '",' + \
                 '"domain":"' + configData['ad_domain'] + '",' + \
                 '"username":"' + configData['ad_username'] + '",' + \
-                '"password":"' + configData['ad_password'] + '",' + \
+                '"password":"' + adPassword + '",' + \
                 '"connType":"' + configData['ad_connType'] + '",' + \
                 '"port":"' + configData['ad_port'] + '",' + \
                 '"sslOnly":"' + configData['ad_sslOnly'] + '"' + \
